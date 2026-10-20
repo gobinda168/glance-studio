@@ -1,0 +1,636 @@
+# vim:ft=zsh
+#
+# Glance Studio's terminal suggestions, the shell's side (docs/superpowers/specs/2026-10-08-terminal-suggestions-design.md
+# in the Glance repository). This shell reports its input line to Studio over a private socket and applies what Studio
+# sends back: the Tab menu's pick, history picks, ghost text, error marks. Studio decides; this file only reports and
+# applies.
+#
+# Autoloaded and run by .zshenv when Studio started this shell with GLANCE_SHELL_SOCKET and GLANCE_SHELL_TAB. Like
+# ghostty-integration it sets itself up at the first prompt, after .zshrc, so it sees what the user's own config bound,
+# and everything lives in functions (`emulate -L zsh`, `builtin` before builtins, no aliases). It only takes a key that
+# is still on zsh's default widget and keeps that widget, which runs whenever Glance is off, disconnected, or the
+# feature is switched off in Settings. Any failure during setup leaves the shell exactly as it was.
+#
+# The Tab capture follows fzf-tab's technique (https://github.com/Aloxaf/fzf-tab, MIT): `compadd` is wrapped while the
+# completion system runs, so every candidate is collected with its description and group, and the pick is inserted
+# later by replaying `compadd` for that one candidate.
+#
+# Note: `builtin local -a x=(...)` is a parse error (the builtin form has no array syntax): declare, then assign.
+
+_glance_entry() {
+    builtin emulate -L zsh -o no_warn_create_global -o no_aliases
+    [[ -o interactive ]] || builtin return 0
+    (( ! $+_glance_state )) || builtin return 0
+    [[ -n $GLANCE_SHELL_SOCKET && -n $GLANCE_SHELL_TAB ]] || builtin return 0
+    { builtin autoload -Uz is-at-least && is-at-least 5.3; } 2>/dev/null || builtin return 0
+    # 0: not set up yet, 1: connected, 2: off for good (setup failed or Studio went away).
+    builtin typeset -gi _glance_state=0
+    builtin typeset -ag precmd_functions
+    precmd_functions+=(_glance_deferred_init)
+}
+
+_glance_deferred_init() {
+    builtin emulate -L zsh -o no_warn_create_global -o no_aliases -o extended_glob
+    precmd_functions=(${precmd_functions:#_glance_deferred_init})
+    if ! _glance_init 2>/dev/null; then
+        (( _glance_fd > 0 )) && builtin exec {_glance_fd}>&- 2>/dev/null
+        (( _glance_state = 2 ))
+    fi
+    builtin unfunction _glance_deferred_init _glance_init 2>/dev/null
+}
+
+_glance_init() {
+    builtin zmodload zsh/net/socket zsh/datetime zsh/zutil || builtin return 1
+    builtin typeset -gi _glance_fd=0
+    builtin zsocket $GLANCE_SHELL_SOCKET || builtin return 1
+    _glance_fd=$REPLY
+    (( _glance_fd > 0 )) || builtin return 1
+
+    builtin typeset -gi _glance_seq=0 _glance_request=0 _glance_ran=0 _glance_run_ready=0 _glance_apply_index=0
+    builtin typeset -g _glance_features=, _glance_sent=$'\0' _glance_sent_cursor=-1 _glance_ghost_for=
+    builtin typeset -ga _glance_cap_word _glance_cap_args _glance_cap_ctx _glance_c_group _glance_c_tag \
+        _glance_c_dscr _glance_c_flags _glance_c_start _glance_c_hidden
+    builtin typeset -gA _glance_orig
+    builtin local -a keys plugins
+
+    # Plugins that own a key Glance would take: Glance leaves that key to them and Settings says so.
+    (( $+widgets[fzf-tab-complete] )) && plugins+=(fzf-tab)
+    (( $+functions[_zsh_autosuggest_start] )) && plugins+=(zsh-autosuggestions)
+    (( $+functions[_zsh_highlight] )) && plugins+=(zsh-syntax-highlighting)
+    (( $+widgets[atuin-search] || $+widgets[_atuin_search_widget] )) && plugins+=(atuin)
+    (( $+widgets[mcfly-history-widget] )) && plugins+=(mcfly)
+    (( $+widgets[fzf-history-widget] )) && plugins+=(fzf)
+
+    # The completion system, when .zshrc didn't load it, with the completions Studio made for installed tools.
+    builtin local completions=$GLANCE_SHELL_COMPLETIONS file line cmd
+    [[ -n $completions && -d $completions ]] && fpath=($completions $fpath)
+    if (( ! $+functions[compdef] )); then
+        builtin autoload -Uz compinit || builtin return 1
+        builtin local dump=${GLANCE_SHELL_CACHE:-${TMPDIR:-/tmp}}/zcompdump-$ZSH_VERSION
+        compinit -i -d $dump 2>/dev/null || builtin return 1
+    elif [[ -n $completions && -d $completions ]]; then
+        # compinit already ran: register the `#compdef` files it didn't see, for commands with no completion yet.
+        for file in $completions/_*(N.); do
+            IFS= builtin read -r line < $file || builtin continue
+            [[ $line == '#compdef '* ]] || builtin continue
+            for cmd in ${=line#\#compdef }; do
+                [[ $cmd == -* ]] && builtin continue
+                (( $+_comps[$cmd] )) && builtin continue
+                builtin autoload -Uz -- ${file:t}
+                compdef ${file:t} $cmd
+            done
+        done
+    fi
+    # Scripts that are meant to be sourced (`source <(tool completion zsh)` style).
+    if [[ -n $completions && -d $completions ]]; then
+        for file in $completions/*.zsh(N.); do
+            builtin source $file 2>/dev/null
+        done
+    fi
+    # Options from `--help` for installed programs without a completion of their own; never for a project's scripts.
+    [[ $_comps[-default-] == _default ]] && compdef _glance_default -default-
+
+    # The keys Glance takes, each only where it is still on one of zsh's own widgets (what each replaced is kept per
+    # keymap and key, and runs whenever Glance doesn't act). The main keymap is emacs or viins.
+    builtin typeset -g _glance_main=emacs
+    [[ "$(builtin bindkey -lL main)" == *viins* ]] && _glance_main=viins
+    builtin zle -N _glance_tab
+    builtin zle -C _glance_collect complete-word _glance_collect_main
+    builtin zle -C _glance_apply complete-word _glance_apply_main
+    builtin zle -N _glance_up
+    builtin zle -N _glance_search
+    builtin zle -N _glance_enter
+    _glance_take $'\t' _glance_tab expand-or-complete complete-word menu-complete menu-expand-or-complete \
+        expand-or-complete-prefix && keys+=(tab)
+    builtin integer up=0
+    _glance_take $'\e[A' _glance_up up-line-or-history up-history up-line-or-search up-line-or-beginning-search \
+        history-beginning-search-backward && up=1
+    _glance_take $'\eOA' _glance_up up-line-or-history up-history up-line-or-search up-line-or-beginning-search \
+        history-beginning-search-backward && up=1
+    (( up )) && keys+=(up)
+    _glance_take $'\C-r' _glance_search history-incremental-search-backward history-incremental-pattern-search-backward \
+        redisplay && keys+=(ctrl-r)
+    # ⏎ on a `# what you want` line asks Claude (taken from accept-line, so wrappers of accept-line still run).
+    builtin integer enter=0
+    _glance_take $'\r' _glance_enter accept-line && enter=1
+    _glance_take $'\n' _glance_enter accept-line && enter=1
+    (( enter )) && keys+=(enter)
+    # Accepting ghost text: →, End and ⌃E take it all, ⌥→ (ESC f) a word. Not with zsh-autosuggestions, whose ghost
+    # text this would be.
+    builtin zle -N _glance_accept
+    builtin zle -N _glance_accept_word
+    if (( ! ${plugins[(Ie)zsh-autosuggestions]} )); then
+        builtin integer accepts=0
+        builtin local seq
+        for seq in $'\e[C' $'\eOC' $'\e[F' $'\eOF' $'\C-e'; do
+            _glance_take $seq _glance_accept forward-char vi-forward-char end-of-line vi-end-of-line && accepts=1
+        done
+        for seq in $'\e[1;3C' $'\ef'; do
+            _glance_take $seq _glance_accept_word forward-word emacs-forward-word vi-forward-word undefined-key \
+                && accepts=1
+        done
+        (( accepts )) && keys+=(right)
+    fi
+
+    # The wake key Studio writes after a message that has to run the line (ESC [ 9999 ~): see _glance_wake.
+    builtin zle -N _glance_wake
+    builtin bindkey -M emacs '^[[9999~' _glance_wake
+    builtin bindkey -M viins '^[[9999~' _glance_wake
+    builtin bindkey -M vicmd '^[[9999~' _glance_wake
+
+    _glance_hook line-init _glance_line_init before
+    _glance_hook line-pre-redraw _glance_pre_redraw after
+    _glance_hook line-finish _glance_line_finish before
+
+    builtin typeset -ag preexec_functions precmd_functions zshexit_functions
+    preexec_functions+=(_glance_preexec)
+    # First, so `$?` is the command's own exit status.
+    precmd_functions=(_glance_precmd $precmd_functions)
+    zshexit_functions+=(_glance_exit)
+
+    builtin zle -N _glance_on_message
+    builtin zle -F -w $_glance_fd _glance_on_message || builtin return 1
+    (( _glance_state = 1 ))
+    _glance_send hello 1 "$GLANCE_SHELL_TAB" $$ "$TTY" "$ZSH_VERSION" "${(j:,:)keys}" "${(j:,:)plugins}" "$PATH" \
+        "${HISTFILE:-$HOME/.zsh_history}"
+    builtin typeset -g _glance_names_sig=
+    _glance_names
+}
+
+# Runs `func` from the zle hook widget zle-`hook`, keeping what was there, the way ghostty-integration chains its own:
+# add-zle-hook-widget when that manages the hook, else the old widget is renamed and called before or after ours.
+_glance_hook() {
+    builtin local hook=$1 func=$2 when=$3 widget=zle-$1 orig flag= body
+    if [[ $widgets[$widget] == user:azhw:* ]] && (( $+functions[add-zle-hook-widget] )); then
+        add-zle-hook-widget $hook $func
+        builtin return
+    fi
+    if (( $+widgets[$widget] )); then
+        orig=._glance_orig_$widget
+        builtin zle -A $widget $orig
+        [[ $widgets[$widget] == user:* ]] || flag=w
+        body="builtin zle $orig -N$flag -- \"\$@\""
+        if [[ $when == after ]]; then
+            functions[$func]="$body
+$functions[$func]"
+        else
+            functions[$func]+="
+$body"
+        fi
+    fi
+    builtin zle -N $widget $func
+}
+
+_glance_on() { [[ $_glance_features == *,$1,* ]]; }
+
+# Binds `seq` to `widget` in emacs and viins where its widget is one of the rest (zsh's own); true if it took any.
+_glance_take() {
+    builtin local seq=$1 widget=$2 km bound
+    builtin integer took=0
+    builtin shift 2
+    # The keymap the user types in decides: a key of their own there is left alone in every keymap.
+    bound=${${(z)"$(builtin bindkey -M $_glance_main -- $seq 2>/dev/null)"}[2]}
+    (( ${@[(Ie)$bound]} )) || builtin return 1
+    for km in emacs viins; do
+        bound=${${(z)"$(builtin bindkey -M $km -- $seq 2>/dev/null)"}[2]}
+        (( ${@[(Ie)$bound]} )) || builtin continue
+        _glance_orig[$km:$seq]=$bound
+        builtin bindkey -M $km -- $seq $widget
+        took=1
+    done
+    (( took ))
+}
+
+# Runs what the key that invoked this widget did before Glance took it (or `$1` if that isn't known).
+_glance_orig_widget() {
+    builtin local km=$KEYMAP widget
+    [[ $km == main ]] && km=$_glance_main
+    widget=${_glance_orig[$km:$KEYS]:-$1}
+    builtin zle $widget -- "${@:2}"
+}
+
+# ---- The socket ----
+
+# One message: the fields escaped (\ tab newline) and joined by tabs.
+_glance_send() {
+    (( _glance_state == 1 )) || builtin return 1
+    # The characters are in variables: $'\t' isn't expanded inside double quotes.
+    builtin local tb=$'\t' nl=$'\n'
+    builtin local msg="${(pj:\t:)${(@)${(@)${(@)@//\\/\\\\}//$tb/\\t}//$nl/\\n}}"
+    builtin print -rnu $_glance_fd -- $msg$'\n' 2>/dev/null || _glance_close
+}
+
+_glance_close() {
+    (( _glance_state == 1 )) || builtin return 0
+    builtin zle -F $_glance_fd 2>/dev/null
+    builtin exec {_glance_fd}>&- 2>/dev/null
+    (( _glance_state = 2 ))
+    # Outside the line editor (a write failing in precmd) there is nothing on screen to clear.
+    if builtin zle; then
+        POSTDISPLAY=
+        region_highlight=("${(@)region_highlight:#*memo=glance-*}")
+    fi
+}
+
+# zle calls this widget when Studio wrote something (or closed the socket).
+_glance_on_message() {
+    builtin emulate -L zsh -o extended_glob
+    builtin local line
+    if ! IFS= builtin read -r -u $_glance_fd line; then
+        _glance_close
+        builtin zle -R
+        builtin return 0
+    fi
+    _glance_handle $line
+    while IFS= builtin read -r -t 0 -u $_glance_fd line; do _glance_handle $line; done
+    builtin zle -R
+}
+
+# The wake key: an `accept-line` from a socket handler only takes effect at the next key, so after `run` Studio writes
+# this key. If the `run` message hasn't been handled yet, it is read here, where accept-line works.
+_glance_wake() {
+    builtin emulate -L zsh -o extended_glob
+    builtin local line
+    if (( _glance_state == 1 && ! _glance_run_ready )) && IFS= builtin read -r -t 1 -u $_glance_fd line; then
+        _glance_handle $line
+        while IFS= builtin read -r -t 0 -u $_glance_fd line; do _glance_handle $line; done
+    fi
+    _glance_run_ready=0
+}
+
+_glance_handle() {
+    builtin local -a f
+    builtin local tb=$'\t' nl=$'\n' nul=$'\0'
+    f=("${(@ps:\t:)1}")
+    f=("${(@)${(@)${(@)${(@)f//\\\\/$nul}//\\t/$tb}//\\n/$nl}//$nul/\\}")
+    case $f[1] in
+        (ping) _glance_send state $_glance_seq $CURSOR "$BUFFER" "$POSTDISPLAY" ;;
+        (config)
+            _glance_features=,$f[2],
+            _glance_on ghost || _glance_ghost ''
+            _glance_on marks || region_highlight=("${(@)region_highlight:#*memo=glance-mark}")
+            ;;
+        (accept)
+            [[ $f[2] == $_glance_request ]] || builtin return
+            _glance_apply_index=$f[3]
+            (( _glance_apply_index >= 1 && _glance_apply_index <= $#_glance_cap_word )) || builtin return
+            builtin zle _glance_apply
+            _glance_report
+            ;;
+        (fallback)
+            # Studio had nothing to show for ↑ or ⌃R: do what the key did before.
+            [[ $f[2] == $_glance_seq ]] || builtin return
+            # (Keys in variables: a literal `[` inside a subscript is a parse error.)
+            builtin local csi=$_glance_main:$'\e[A' ss3=$_glance_main:$'\eOA' ctrlr=$_glance_main:$'\C-r'
+            case $f[3] in
+                (up) builtin zle ${_glance_orig[$csi]:-${_glance_orig[$ss3]:-up-line-or-history}} ;;
+                (search) builtin zle ${_glance_orig[$ctrlr]:-history-incremental-search-backward} ;;
+            esac
+            _glance_report
+            ;;
+        (complete)
+            [[ $f[2] == $_glance_seq ]] || builtin return
+            _glance_tab_collect
+            _glance_report
+            ;;
+        (replace)
+            [[ $f[2] == $_glance_seq ]] || builtin return
+            BUFFER=$f[3]
+            CURSOR=${f[4]:-$#BUFFER}
+            _glance_report
+            ;;
+        (run)
+            [[ $f[2] == $_glance_seq ]] || builtin return
+            BUFFER=$f[3]
+            CURSOR=$#BUFFER
+            _glance_ghost ''
+            _glance_run_ready=1
+            builtin zle .accept-line
+            ;;
+        (suggest)
+            [[ $f[2] == $_glance_seq ]] || builtin return
+            _glance_on ghost || builtin return
+            _glance_ghost "$f[3]" "$f[4]"
+            ;;
+        (marks)
+            [[ $f[2] == $_glance_seq ]] || builtin return
+            region_highlight=("${(@)region_highlight:#*memo=glance-mark}")
+            _glance_on marks || builtin return
+            builtin local r
+            for r in ${(s:,:)f[3]}; do
+                region_highlight+=("${r%%-*} ${${r#*-}%%-*} fg=1,underline,memo=glance-mark")
+            done
+            ;;
+    esac
+}
+
+# ---- The line ----
+
+_glance_line_init() {
+    _glance_sent=$'\0'
+    _glance_ghost ''
+    region_highlight=("${(@)region_highlight:#*memo=glance-*}")
+    (( _glance_seq++ ))
+    _glance_send prompt $_glance_seq "$PWD"
+    # The line as the prompt starts (usually empty), so the seq is current before the first key.
+    _glance_report
+}
+
+_glance_line_finish() {
+    _glance_ghost ''
+    region_highlight=("${(@)region_highlight:#*memo=glance-mark}")
+}
+
+_glance_pre_redraw() {
+    (( _glance_state == 1 )) || builtin return 0
+    # Ghost text the user is typing into stays, shortened; anything else made it stale.
+    if [[ -n $POSTDISPLAY && $BUFFER != $_glance_ghost_for ]]; then
+        if [[ $BUFFER == ${_glance_ghost_for}* && $_glance_ghost_for$POSTDISPLAY == ${BUFFER}* ]]; then
+            builtin local rest=${POSTDISPLAY:$(( $#BUFFER - $#_glance_ghost_for ))}
+            _glance_ghost "$rest"
+        else
+            _glance_ghost ''
+        fi
+    fi
+    _glance_report
+}
+
+# Tells Studio the line, when it changed since the last report.
+_glance_report() {
+    (( _glance_state == 1 )) || builtin return 0
+    [[ $BUFFER == $_glance_sent && $CURSOR == $_glance_sent_cursor ]] && builtin return 0
+    _glance_sent=$BUFFER
+    _glance_sent_cursor=$CURSOR
+    (( _glance_seq++ ))
+    _glance_send line $_glance_seq $CURSOR "$BUFFER"
+}
+
+# Shows `text` as ghost text after the line (empty clears it). `$2`, when set, is where accepting it leaves the cursor.
+_glance_ghost() {
+    POSTDISPLAY=$1
+    _glance_ghost_for=$BUFFER
+    builtin typeset -g _glance_ghost_cursor=$2
+    region_highlight=("${(@)region_highlight:#*memo=glance-ghost}")
+    (( $#POSTDISPLAY )) && region_highlight+=("$#BUFFER $(( $#BUFFER + $#POSTDISPLAY )) fg=8,memo=glance-ghost")
+}
+
+# →, End, ⌃E at the end of the line with ghost text: take it all (the cursor where Studio said, else the end).
+_glance_accept() {
+    if (( _glance_state == 1 && $#POSTDISPLAY && CURSOR == $#BUFFER )); then
+        builtin local cursor=$_glance_ghost_cursor
+        BUFFER+=$POSTDISPLAY
+        _glance_ghost ''
+        if [[ -n $cursor ]]; then CURSOR=$cursor; else CURSOR=$#BUFFER; fi
+        builtin return 0
+    fi
+    _glance_orig_widget forward-char "$@"
+}
+
+# ⌥→ there: the ghost text's next word.
+_glance_accept_word() {
+    builtin emulate -L zsh -o extended_glob
+    if (( _glance_state == 1 && $#POSTDISPLAY && CURSOR == $#BUFFER )); then
+        builtin local word=${(M)POSTDISPLAY##[[:space:]]#[^[:space:]]##}
+        [[ -z $word ]] && word=$POSTDISPLAY
+        builtin local rest=${POSTDISPLAY:$#word}
+        BUFFER+=$word
+        CURSOR=$#BUFFER
+        _glance_ghost "$rest"
+        builtin return 0
+    fi
+    _glance_orig_widget forward-word "$@"
+}
+
+# ---- Commands ----
+
+_glance_preexec() {
+    _glance_send exec "$PWD" $EPOCHREALTIME "$1"
+    _glance_ran=1
+}
+
+_glance_precmd() {
+    builtin local -i st=$?
+    (( _glance_ran )) && _glance_send done $st $EPOCHREALTIME
+    _glance_ran=0
+    _glance_names
+}
+
+# The shell's command names for Studio (light completion, error marks); sent again when they may have changed.
+_glance_names() {
+    (( _glance_state == 1 )) || builtin return 0
+    # The user's own functions only: completion functions (`_git`) load as they're first used and don't count.
+    builtin local -a own
+    own=(${(k)functions:#[_.+-]*})
+    builtin local sig="$PATH|${#aliases}|${#own}"
+    [[ $sig == $_glance_names_sig ]] && builtin return 0
+    # Commands are hashed again only when $PATH changed.
+    [[ ${_glance_names_sig%%|*} == $PATH ]] || builtin hash -f 2>/dev/null
+    _glance_names_sig=$sig
+    _glance_send names commands ${(k)commands}
+    _glance_send names aliases ${(k)aliases}
+    _glance_send names functions $own
+    _glance_send names builtins ${(k)builtins}
+}
+
+_glance_exit() { _glance_send bye; }
+
+# ---- Tab ----
+
+_glance_tab() {
+    # Tab on a `# what you want` line asks Claude.
+    if (( _glance_state == 1 )) && _glance_on claude && [[ $BUFFER == '#'?* ]]; then
+        _glance_send open ask $_glance_seq
+        builtin return 0
+    fi
+    if (( _glance_state != 1 )) || ! _glance_on tab; then
+        _glance_orig_widget expand-or-complete "$@"
+        builtin return
+    fi
+    _glance_tab_collect
+}
+
+# Whether the line may be plain English: one line of two or more plain words, the first not a command, alias,
+# function, builtin or reserved word here. Studio decides the rest.
+_glance_sentence() {
+    # (Not under the user's options: without EXTENDED_GLOB a `##` is a literal, and the line would never match.)
+    builtin emulate -L zsh -o extended_glob
+    [[ $BUFFER != *$'\n'* && $BUFFER == *[[:space:]]* ]] || builtin return 1
+    builtin local -a w
+    builtin local cmd
+    w=(${(z)BUFFER})
+    (( $#w >= 2 )) || builtin return 1
+    cmd=$w[1]
+    [[ $cmd == [[:alpha:]]## ]] || builtin return 1
+    (( $+commands[$cmd] || $+aliases[$cmd] || $+functions[$cmd] || $+builtins[$cmd] )) && builtin return 1
+    [[ -n ${reswords[(r)$cmd]} ]] && builtin return 1
+    builtin return 0
+}
+
+# ⏎: on a `# what you want` line, ask Claude; on a sentence, have Studio turn it into a command; otherwise exactly
+# what ⏎ did.
+_glance_enter() {
+    if (( _glance_state == 1 )) && _glance_on claude && [[ $BUFFER == '#'?* ]]; then
+        _glance_send open ask $_glance_seq
+        builtin return 0
+    fi
+    # A sentence ("create a directory"): Studio turns it into a command to review, or has the line run as typed.
+    if (( _glance_state == 1 )) && _glance_on claude && _glance_sentence; then
+        _glance_send open translate $_glance_seq
+        builtin return 0
+    fi
+    # Ghost text and marks don't belong in the scrollback.
+    if (( $#POSTDISPLAY )) || [[ $region_highlight == *memo=glance-* ]]; then
+        _glance_ghost ''
+        region_highlight=("${(@)region_highlight:#*memo=glance-*}")
+    fi
+    _glance_orig_widget accept-line "$@"
+}
+
+# ↑: Studio's history list, with the cursor on the input's first line; anything else is zsh's own ↑.
+_glance_up() {
+    if (( _glance_state == 1 )) && _glance_on up && [[ $LBUFFER != *$'\n'* ]]; then
+        _glance_send open history $_glance_seq
+        builtin return 0
+    fi
+    _glance_orig_widget up-line-or-history "$@"
+}
+
+# ⌃R: Studio's history search.
+_glance_search() {
+    if (( _glance_state == 1 )) && _glance_on search; then
+        _glance_send open search $_glance_seq
+        builtin return 0
+    fi
+    _glance_orig_widget history-incremental-search-backward "$@"
+}
+
+# Runs the completion with compadd collecting; several candidates go to Studio for the menu.
+_glance_tab_collect() {
+    _glance_cap_word=() _glance_cap_args=() _glance_cap_ctx=()
+    _glance_c_group=() _glance_c_tag=() _glance_c_dscr=() _glance_c_flags=() _glance_c_start=() _glance_c_hidden=()
+    builtin local -i _glance_offer=0
+    builtin zle _glance_collect
+    (( _glance_offer )) || builtin return 0
+    (( _glance_request++ ))
+    builtin local -i total=$#_glance_cap_word n
+    n=$(( total < 2000 ? total : 2000 ))
+    _glance_send candidates $_glance_request $_glance_seq $total
+    builtin local -a g t w d h
+    g=("${(@)_glance_c_group[1,n]}") t=("${(@)_glance_c_tag[1,n]}") w=("${(@)_glance_cap_word[1,n]}")
+    d=("${(@)_glance_c_dscr[1,n]}") h=("${(@)_glance_c_hidden[1,n]}")
+    builtin local tb=$'\t' nl=$'\n'
+    g=("${(@)${(@)${(@)g//\\/\\\\}//$tb/\\t}//$nl/\\n}")
+    t=("${(@)${(@)${(@)t//\\/\\\\}//$tb/\\t}//$nl/\\n}")
+    w=("${(@)${(@)${(@)w//\\/\\\\}//$tb/\\t}//$nl/\\n}")
+    d=("${(@)${(@)${(@)d//\\/\\\\}//$tb/\\t}//$nl/\\n}")
+    h=("${(@)${(@)${(@)h//\\/\\\\}//$tb/\\t}//$nl/\\n}")
+    builtin local i out= T=$'\t'
+    for i in {1..$n}; do
+        out+="cand$T$_glance_request$T$i$T$g[i]$T$t[i]$T$w[i]$T$d[i]$T$_glance_c_flags[i]$T$_glance_c_start[i]$T$h[i]"$'\n'
+    done
+    (( _glance_state == 1 )) || builtin return 0
+    builtin print -rnu $_glance_fd -- "${out}end$T$_glance_request"$'\n' 2>/dev/null || _glance_close
+}
+
+# compadd while Glance collects candidates (inside _glance_collect_main only).
+_glance_compadd() {
+    builtin local -A apre hpre dscrs oad
+    builtin local -a isfile opts ign expl grp wdir
+    zparseopts -a opts P:=apre p:=hpre d:=dscrs X+:=expl O:=oad A:=oad D:=oad f=isfile W:=wdir \
+        i: S: s: I: x: r: R: F: M+: E: q e Q n U C \
+        J:=grp V:=grp a=ign l=ign k=ign o::=ign 1=ign 2=ign
+    # -O, -A and -D only fill arrays; and outside Glance's collection compadd is just compadd.
+    if (( $#oad || ! _glance_collecting )); then
+        builtin compadd "$@"
+        builtin return
+    fi
+    builtin local -a hits dscr
+    (( $#dscrs == 1 )) && dscr=("${(@P)${(v)dscrs}}")
+    builtin compadd -A hits -D dscr "$@"
+    builtin local ret=$?
+    (( $#hits )) || builtin return $ret
+    builtin local group=${expl[2]#$'\x01'} flags= start=$(( CURSOR - $#PREFIX ))
+    [[ $grp[1] == -V ]] && flags+=o
+    opts+=("${(@kv)apre}" "${(@kv)hpre}" $wdir $isfile)
+    builtin local args=${(pj:\1:)opts} ctx=$IPREFIX$'\0'$PREFIX$'\0'$SUFFIX$'\0'$ISUFFIX dir= i head
+    if [[ -n $isfile ]]; then
+        flags+=f
+        if [[ -n $hpre[-p] ]]; then dir=${(Q)IPREFIX}${(Q)hpre[-p]}
+        elif [[ -n $wdir[2] ]]; then dir=${(Q)wdir[2]}/
+        else dir=${(Q)IPREFIX}; fi
+        if [[ $dir == \~* ]]; then
+            head=${dir%%/*}
+            dir=${~head}${dir#$head}
+        fi
+    fi
+    _glance_cap_word+=("${(@)hits}")
+    for i in {1..$#hits}; do
+        _glance_cap_args+=("$args")
+        _glance_cap_ctx+=("$ctx")
+        _glance_c_group+=("$group")
+        _glance_c_tag+=("$curtag")
+        _glance_c_dscr+=("$dscr[i]")
+        if [[ -n $isfile && -d $dir${(Q)hits[i]} ]]; then
+            _glance_c_flags+=("${flags}d")
+        else
+            _glance_c_flags+=("$flags")
+        fi
+        _glance_c_start+=($start)
+        _glance_c_hidden+=("$hpre[-p]")
+    done
+    builtin compadd "$@"
+}
+
+# The completion widget behind Tab: compsys with compadd collecting. zsh still inserts a single match or the shared
+# prefix of several; it lists nothing (the menu is Studio's).
+_glance_collect_main() {
+    builtin local -i _glance_collecting=1
+    builtin local -a fmt grouped
+    builtin zstyle -g fmt ':completion:*:descriptions' format
+    builtin zstyle -g grouped ':completion:*' list-grouped
+    # Group names come from the descriptions' format; options only carry their descriptions when not grouped.
+    builtin zstyle ':completion:*:descriptions' format $'\x01%d'
+    builtin zstyle ':completion:*' list-grouped false
+    {
+        functions[compadd]=$functions[_glance_compadd]
+        COLUMNS=500 _main_complete "$@"
+    } always {
+        builtin unfunction compadd 2>/dev/null
+        if (( $#fmt )); then builtin zstyle ':completion:*:descriptions' format "${fmt[@]}"
+        else builtin zstyle -d ':completion:*:descriptions' format; fi
+        if (( $#grouped )); then builtin zstyle ':completion:*' list-grouped "${grouped[@]}"
+        else builtin zstyle -d ':completion:*' list-grouped; fi
+    }
+    if (( $#_glance_cap_word > 1 )); then
+        compstate[list]=
+        [[ $compstate[insert] == *menu* ]] && compstate[insert]=unambiguous
+        _glance_offer=1
+    fi
+}
+
+# Inserts candidate $_glance_apply_index of the last list the way zsh would have: compadd replayed for that one.
+_glance_apply_main() {
+    builtin local i=$_glance_apply_index
+    builtin local -a args ctx
+    args=("${(@ps:\1:)_glance_cap_args[i]}")
+    [[ -z $args[1] ]] && args=()
+    ctx=("${(@ps:\0:)_glance_cap_ctx[i]}")
+    IPREFIX=$ctx[1] PREFIX=$ctx[2] SUFFIX=$ctx[3] ISUFFIX=$ctx[4]
+    builtin compadd "${args[@]:--Q}" -Q -- "$_glance_cap_word[i]"
+    compstate[list]=
+    compstate[insert]=1
+    [[ $RBUFFER == ' '* ]] || compstate[insert]+=' '
+}
+
+# The completion for commands with none of their own: options from `--help` for programs installed by Homebrew,
+# files otherwise (zsh's default). Never runs a script from a project.
+_glance_default() {
+    if [[ $PREFIX == -* ]]; then
+        case ${commands[$words[1]]} in
+            (/opt/homebrew/bin/*|/opt/homebrew/sbin/*|/usr/local/bin/*) _gnu_generic && builtin return 0 ;;
+        esac
+    fi
+    _default "$@"
+}
+
+_glance_entry

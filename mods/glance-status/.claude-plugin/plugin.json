@@ -1,0 +1,6 @@
+{
+  "name": "glance-status",
+  "version": "0.1.0",
+  "description": "/progress: what Claude is doing now, where it is in its plan and what the session has cost, in a pane",
+  "author": { "name": "Gobinda Das" }
+}

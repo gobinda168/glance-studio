@@ -1,0 +1,50 @@
+u
+ ▐▛███▛█   Claude Code v2.1.292
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/Code/capture-work
+
+
+❯ Run this exact bash command: echo glance-probe > probe.txt
+
+  Ran 1 shell command
+  ⎿  Interrupted · What should Claude do instead?
+
+✻ Churned for 1s · done 7:21 AM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                            You've used 92% of your weekly limit · resets Oct 14 at 4:30pm (Asia/Calcutta)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker · restart with CLAUDE_CODE_FORCE_SESSION_PERSISTENCE=1 to keep …
+
+  ⏸ manual mode on

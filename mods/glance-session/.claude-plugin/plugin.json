@@ -1,0 +1,6 @@
+{
+  "name": "glance-session",
+  "version": "0.1.0",
+  "description": "Tells Glance Studio which Claude Code session runs in which terminal",
+  "author": { "name": "Gobinda Das" }
+}

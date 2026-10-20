@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Not an app's Info.plist any more: only the marketing version lives here (scripts/stamp-version.sh and
+     scripts/release.sh read it). Glance Studio's own plist is terminal/macos/Ghostty-Info.plist. -->
+<plist version="1.0">
+<dict>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0-beta.17</string>
+</dict>
+</plist>

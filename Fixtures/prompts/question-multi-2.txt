@@ -1,0 +1,22 @@
+u
+ ▐▛███▛█   Claude Code v2.1.292
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/Code/capture-work
+
+
+❯ Use the AskUserQuestion tool to ask me two single-select questions in one call: 'Which color?' (red, green) and 'Which size?' (small,
+  large).
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+←  ☒ Color  ☐ Size  ✔ Submit  →
+
+Which size?
+
+❯ 1. small
+     Small
+  2. large
+     Large
+  3. Type something.
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  4. Chat about this
+
+Enter to select · Tab/Arrow keys to navigate · Esc to cancel

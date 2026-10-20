@@ -1,0 +1,16 @@
+# Known false positives for gitleaks: fake tokens in test fixtures and upstream Ghostty code.
+# scripts/oss-export.sh scans every public snapshot and stops on anything not listed here.
+Tests/GlanceCoreTests/BranchCompareTests.swift:aws-access-token:69
+Tests/GlanceCoreTests/GitHubAccountTests.swift:generic-api-key:51
+Tests/GlanceCoreTests/GoogleAuthTests.swift:generic-api-key:64
+Tests/GlanceCoreTests/SecretFilterTests.swift:curl-auth-header:21
+Tests/GlanceCoreTests/SecretFilterTests.swift:generic-api-key:12
+Tests/GlanceCoreTests/SecretFilterTests.swift:stripe-access-token:13
+Tests/GlanceCoreTests/WebLogTests.swift:jwt:38
+terminal/.github/workflows/release-tag.yml:generic-api-key:259
+terminal/.github/workflows/release-tip.yml:generic-api-key:686
+terminal/.github/workflows/release-tip.yml:generic-api-key:931
+terminal/.github/workflows/release-tip.yml:generic-api-key:1128
+terminal/src/input/Binding.zig:generic-api-key:4886
+terminal/src/terminal/snapshot/terminal.zig:generic-api-key:1035
+terminal/vendor/nerd-fonts/font-patcher.py:generic-api-key:1811

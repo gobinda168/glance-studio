@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glance Design System</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  @font-face { font-family: "DM Sans"; font-weight: 400 700; src: url(../../Web/vendor/fonts/dm-sans.woff2) format("woff2"); }
+  @font-face { font-family: "JetBrains Mono"; font-weight: 400 600; src: url(../../Web/vendor/fonts/jetbrains-mono.woff2) format("woff2"); }
+  html { background: #efe9dd; }
+  html[data-theme=dark] { background: #151412; }
+  @media (prefers-color-scheme: dark) { html:not([data-theme=light]) { background: #151412; } }
+  body { margin: 0; font: var(--fs-body)/var(--lh-body) var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  /* A warm, busy backdrop so the glass has something to refract. */
+  .backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+  .backdrop span { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .55; }
+  .backdrop span:nth-child(1) { width: 520px; height: 520px; left: -120px; top: -80px; background: #e8643c; }
+  .backdrop span:nth-child(2) { width: 460px; height: 460px; right: -100px; top: 30%; background: #6aa8ff; opacity: .35; }
+  .backdrop span:nth-child(3) { width: 420px; height: 420px; left: 30%; bottom: -160px; background: #c96df2; opacity: .3; }
+  header { position: sticky; top: 0; z-index: var(--z-popover); display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s5); }
+  header h1 { font-size: var(--fs-title); font-weight: 700; letter-spacing: -.01em; margin: 0; flex: 1; }
+  main { max-width: 980px; margin: 0 auto; padding: var(--s6) var(--s4) 80px; display: grid; gap: var(--s6); }
+  section { padding: var(--s5); border-radius: var(--r-xl); }
+  h2 { font-size: var(--fs-caption); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); margin: 0 0 var(--s4); }
+  p.lead { color: var(--body); font-size: var(--fs-read); line-height: var(--lh-read); margin: 0; max-width: 64ch; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s3); }
+  .sw { border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--line); background: var(--solid); }
+  .sw i { display: block; height: 54px; }
+  .sw div { padding: 8px 10px; font-size: var(--fs-small); }
+  .sw code, .mono { font-family: var(--mono); font-size: 11px; color: var(--mu); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
+  .type > div { display: flex; align-items: baseline; gap: var(--s4); padding: 6px 0; border-bottom: 1px solid var(--line2); }
+  .type > div span:first-child { width: 120px; flex: none; }
+  .mat { height: 110px; border-radius: var(--r-lg); display: flex; align-items: flex-end; padding: var(--s3); font-weight: 600; }
+  .demo-stage { height: 120px; border-radius: var(--r-lg); border: 1px dashed var(--line3); display: grid; place-items: center; }
+  .card { padding: var(--s4); border-radius: var(--r-lg); width: 240px; }
+  .orb { width: 56px; height: 56px; border-radius: 50%; position: relative; }
+  .orb::before { content: ""; position: absolute; inset: -35%; border-radius: 50%; background: radial-gradient(circle, var(--g, #e8643c55), transparent 65%); animation: breathe 4s ease-in-out infinite; }
+  .orb::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--fill); box-shadow: inset 0 -6px 18px #0003; }
+  .orb.idle { --fill: radial-gradient(circle at 36% 30%, #ffb99e, #e8643c 55%, #8e2f12); }
+  .orb.thinking { --g: #2a8f9477; --fill: radial-gradient(circle at 36% 30%, #a6e6e9, #2a8f94 55%, #0f4448); }
+  .orb.reading { --g: #d9a44166; --fill: radial-gradient(circle at 36% 30%, #f5dc9c, #d9a441 55%, #7a5212); }
+  @keyframes breathe { 50% { transform: scale(1.06); } }
+  @media (prefers-reduced-motion: reduce) { .orb::before { animation: none; } }
+  .diff { font: 12.5px/1.7 var(--mono); border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line); background: var(--solid); }
+  .diff div { padding: 0 10px 0 28px; position: relative; }
+  .diff .del { background: var(--del-fill); } .diff .del::before { content: "−"; color: var(--del); position: absolute; left: 10px; }
+  .diff .add { background: var(--ok-fill); } .diff .add::before { content: "+"; color: var(--ok); position: absolute; left: 10px; }
+  .box { border-left: 3px solid var(--coral); border-radius: var(--r-md); padding: var(--s2) var(--s3); display: grid; gap: var(--s2); max-width: 560px; }
+  .box .q { color: var(--mu); font-size: var(--fs-small); } .box .q::before { content: "› "; color: var(--coral); }
+  .box p { margin: 0; } .box a { color: var(--coral-ink); }
+  table { border-collapse: collapse; width: 100%; font-size: var(--fs-small); }
+  td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line2); }
+  th { color: var(--mu); font-weight: 600; }
+  @media (max-width: 600px) { .type > div span:first-child { width: 80px; } }
+</style>
+</head>
+<body>
+<div class="backdrop"><span></span><span></span><span></span></div>
+
+<header class="g-glass-thin">
+  <span class="g-dot"></span>
+  <h1>Glance Design System</h1>
+  <div class="g-seg" role="group" aria-label="Theme">
+    <button data-t="auto" aria-pressed="true">Auto</button><button data-t="light" aria-pressed="false">Light</button><button data-t="dark" aria-pressed="false">Dark</button>
+  </div>
+</header>
+
+<main>
+  <section class="g-glass">
+    <h2>Principles</h2>
+    <p class="lead">Content first, glass second. One light per view. Warm, not neon. Motion explains. Keyboard is first-class. Respect the system: light/dark, Reduce Motion, Reduce Transparency. Source of truth: <span class="mono">design-system/glance/MASTER.md</span>.</p>
+  </section>
+
+  <section class="g-glass">
+    <h2>Signature: the glow ring</h2>
+    <div class="row" style="gap: var(--s6)">
+      <button class="g-pill g-glow"><span class="g-dot"></span>Ask Claude<kbd class="g-kbd">⌘I</kbd></button>
+      <button class="g-pill g-glow g-quiet"><span class="g-dot"></span>Paused (.g-quiet)<kbd class="g-kbd">⌘I</kbd></button>
+      <span style="color: var(--mu); font-size: var(--fs-small)">One per view · only on an action Claude can take · stops when hidden or under Reduce Motion</span>
+    </div>
+  </section>
+
+  <section class="g-glass">
+    <h2>Colour</h2>
+    <div class="grid">
+      <div class="sw"><i style="background: var(--coral)"></i><div>Coral · Claude<br><code>--coral #e8643c</code></div></div>
+      <div class="sw"><i style="background: var(--teal)"></i><div>Teal · thinking<br><code>--teal #2a8f94</code></div></div>
+      <div class="sw"><i style="background: var(--amber)"></i><div>Amber · reading<br><code>--amber #d9a441</code></div></div>
+      <div class="sw"><i style="background: var(--ok)"></i><div>Green · added<br><code>--ok #2ea043</code></div></div>
+      <div class="sw"><i style="background: var(--del)"></i><div>Red · removed<br><code>--del #f85149</code></div></div>
+      <div class="sw"><i style="background: conic-gradient(var(--aurora))"></i><div>Aurora · the light<br><code>--aurora</code></div></div>
+    </div>
+    <table style="margin-top: var(--s4)">
+      <tr><th>Text token</th><th>Sample</th><th>Contrast (light / dark)</th></tr>
+      <tr><td class="mono">--ink</td><td style="color: var(--ink)">Titles and primary text</td><td>16.2 / 15.6</td></tr>
+      <tr><td class="mono">--body</td><td style="color: var(--body)">Long reading text in replies</td><td>8.9 / 10.0</td></tr>
+      <tr><td class="mono">--mu</td><td style="color: var(--mu)">Captions, hints, secondary</td><td>5.4 / 6.1</td></tr>
+      <tr><td class="mono">--coral-ink</td><td style="color: var(--coral-ink)">Links and coral emphasis</td><td>4.6 / 7+</td></tr>
+      <tr><td class="mono">--on-coral</td><td><span class="g-btn primary" style="height: 24px">Label on coral</span></td><td>5.2</td></tr>
+    </table>
+  </section>
+
+  <section class="g-glass">
+    <h2>Typography</h2>
+    <div class="type">
+      <div><span class="mono">display 28</span><span style="font-size: var(--fs-display); font-weight: 700; letter-spacing: -.01em">Glance</span></div>
+      <div><span class="mono">title 19</span><span style="font-size: var(--fs-title); font-weight: 700; letter-spacing: -.01em">Claude's latest reply</span></div>
+      <div><span class="mono">reading 15</span><span style="font-size: var(--fs-read); color: var(--body)">The refresh token rotates on every call, so a stolen one is useless after a single use.</span></div>
+      <div><span class="mono">body 13</span><span>Ask about this code, or say what to change…</span></div>
+      <div><span class="mono">small 12</span><span style="font-size: var(--fs-small); font-weight: 600">Accept · Reject · Stop</span></div>
+      <div><span class="mono">caption 11</span><span style="font-size: var(--fs-caption); color: var(--mu); letter-spacing: .06em; text-transform: uppercase">Files · Search · Changes</span></div>
+      <div><span class="mono">mono 12.5</span><span style="font: 12.5px var(--mono)">case claudeFiles([String])</span></div>
+    </div>
+  </section>
+
+  <section class="g-glass">
+    <h2>Materials</h2>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr))">
+      <div class="mat g-glass-thin">Thin · bars</div>
+      <div class="mat g-glass">Regular · cards, popovers</div>
+      <div class="mat g-glass-thick">Thick · pane card, palettes</div>
+      <div class="mat" style="background: var(--solid); border: 1px solid var(--line)">Solid · under a glow, Reduce Transparency</div>
+    </div>
+  </section>
+
+  <section class="g-glass">
+    <h2>Controls</h2>
+    <div class="row">
+      <button class="g-btn primary">Accept <kbd class="g-kbd" style="background: transparent; color: inherit; border-color: rgba(0,0,0,.25)">⌘↩</kbd></button>
+      <button class="g-btn">Reject <kbd class="g-kbd">Esc</kbd></button>
+      <button class="g-btn quiet">Close</button>
+      <input class="g-field" placeholder="Ask about this code…" style="width: 220px">
+      <div class="g-seg" role="group" aria-label="Layout"><button aria-pressed="true">Side by side</button><button aria-pressed="false">Inline</button></div>
+    </div>
+  </section>
+
+  <section class="g-glass">
+    <h2>The orb</h2>
+    <div class="row" style="gap: var(--s8)">
+      <div class="row"><div class="orb idle"></div><span>Idle / speaking</span></div>
+      <div class="row"><div class="orb thinking"></div><span>Thinking</span></div>
+      <div class="row"><div class="orb reading"></div><span>Reading</span></div>
+      <div class="row"><span class="g-dot"></span><span>Compact mark</span></div>
+    </div>
+  </section>
+
+  <section class="g-glass">
+    <h2>Motion</h2>
+    <div class="row" style="margin-bottom: var(--s3)">
+      <button class="g-btn" data-play="g-rise">Rise · arriving card</button>
+      <button class="g-btn" data-play="g-appear">Appear · panel from the edge</button>
+      <button class="g-btn" data-play="g-swap">Swap · content in place</button>
+      <button class="g-btn" data-play="g-fade">Fade · pill, hints</button>
+    </div>
+    <div class="demo-stage"><div id="demo" class="card g-glass"><b>Claude</b><div style="color: var(--body)">Here's what changed in <span style="color: var(--coral-ink)">ask.js</span>.</div></div></div>
+    <p style="color: var(--mu); font-size: var(--fs-small); margin: var(--s3) 0 0">Arrive slow (420–600ms, spring), leave fast (160ms). One entrance per element. Reduce Motion turns every entrance into a fade.</p>
+  </section>
+
+  <section class="g-glass">
+    <h2>Inline Ask (reference component)</h2>
+    <div class="diff" style="margin-bottom: var(--s3)">
+      <div>private func orbClicked() {</div>
+      <div class="del">  wantsVisible = !panel.isVisible</div>
+      <div class="add">  wantsVisible.toggle()</div>
+      <div>}</div>
+    </div>
+    <div class="box g-glass">
+      <div class="q">make this a toggle</div>
+      <p>Use <code class="mono">toggle()</code> so the intent reads at a glance. <a href="#">Bool.toggle()</a></p>
+      <div class="row" style="justify-content: flex-end"><button class="g-btn primary">Accept</button><button class="g-btn">Reject</button><button class="g-btn quiet">×</button></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const root = document.documentElement;
+  for (const b of document.querySelectorAll("header .g-seg button")) {
+    b.addEventListener("click", () => {
+      for (const o of b.parentElement.children) o.setAttribute("aria-pressed", String(o === b));
+      if (b.dataset.t === "auto") root.removeAttribute("data-theme"); else root.dataset.theme = b.dataset.t;
+    });
+  }
+  for (const b of document.querySelectorAll("[data-play]")) {
+    b.addEventListener("click", () => {
+      const demo = document.getElementById("demo");
+      demo.classList.remove("g-rise", "g-appear", "g-swap", "g-fade");
+      void demo.offsetWidth;
+      demo.classList.add(b.dataset.play);
+    });
+  }
+</script>
+</body>
+</html>

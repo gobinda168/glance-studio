@@ -1,0 +1,117 @@
+{
+  "fill-specializations" : [
+    {
+      "value" : {
+        "linear-gradient" : [
+          "srgb:0.98039,0.97255,0.95294,1.00000",
+          "srgb:0.92549,0.90588,0.86275,1.00000"
+        ]
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : {
+        "linear-gradient" : [
+          "srgb:0.14902,0.13725,0.12157,1.00000",
+          "srgb:0.08627,0.07843,0.07059,1.00000"
+        ]
+      }
+    }
+  ],
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name-specializations" : [
+            {
+              "value" : "Orb.svg"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "Orb-Mono.svg"
+            }
+          ],
+          "name" : "Orb"
+        }
+      ],
+      "lighting" : "individual",
+      "name" : "Orb",
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "glass" : false,
+          "hidden" : false,
+          "image-name-specializations" : [
+            {
+              "value" : "Ticks.svg"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "Ticks-Dark.svg"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "Ticks-Mono.svg"
+            }
+          ],
+          "name" : "Ticks"
+        }
+      ],
+      "lighting" : "individual",
+      "name" : "Level ring",
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0.5
+      },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "blend-mode" : "plus-lighter",
+          "glass" : false,
+          "hidden-specializations" : [
+            {
+              "value" : true
+            },
+            {
+              "appearance" : "dark",
+              "value" : false
+            }
+          ],
+          "image-name" : "Glow.svg",
+          "name" : "Glow"
+        }
+      ],
+      "lighting" : "individual",
+      "name" : "Backdrop",
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0.5
+      },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}

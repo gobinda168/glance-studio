@@ -1,0 +1,171 @@
+/* Glance design tokens: Liquid Glass, warm coral, one glowing light. The single source for every web surface (the
+ * Glance pane, Razor Code, the orb page) — see design-system/glance/MASTER.md for how and when to use each one.
+ * Names match the existing Web/style.css tokens so pages can adopt this file without renaming. */
+
+@property --g-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+
+/* ── Colour: light ───────────────────────────────────────────────── */
+:root, [data-theme=light] {
+  color-scheme: light;
+  /* Surfaces, back to front. Translucent: the glass behind the page shows through. */
+  --bg: rgba(250, 247, 240, .58);      /* window/panel fill over the material */
+  --bg2: rgba(243, 239, 230, .5);      /* bars: headers, tab bars, sidebars */
+  --card: rgba(255, 255, 255, .78);    /* floating cards, popovers, the Ask box */
+  --solid: #fffaf6;                    /* opaque chip behind a glow (the pill), reduced-transparency fallback */
+  --chip: rgba(236, 230, 216, .85);
+  --seg: rgba(28, 26, 23, .07);        /* segmented-control track */
+  --hover: rgba(28, 26, 23, .06);
+  --press: rgba(28, 26, 23, .1);
+  --sel: rgba(232, 100, 60, .16);      /* selected row/tab */
+  /* Hairlines and the glass rim (the 1px top highlight that makes glass read as glass). */
+  --line: rgba(28, 26, 23, .12);
+  --line2: rgba(28, 26, 23, .08);
+  --line3: rgba(28, 26, 23, .17);
+  --rim: rgba(255, 255, 255, .7);
+  /* Text. Every pair here passes 4.5:1 on --bg (see MASTER.md §3). */
+  --ink: #1c1a17;                      /* titles, primary text      16.2:1 */
+  --body: #4a453d;                     /* reading text               8.9:1 */
+  --mu: #6b655c;                       /* secondary, captions        5.4:1 (was #7a746a, 4.3:1) */
+  --coral-ink: #c4471f;                /* coral as text or link      4.6:1 */
+  --on-coral: #1c1a17;                 /* label on a coral fill      5.2:1 */
+  /* Status fills */
+  --note: rgba(251, 233, 223, .9); --notefg: #6b2c14;
+  --ok-fill: rgba(46, 160, 67, .16); --del-fill: rgba(248, 81, 73, .16);
+  --shadow-color: 28 26 23;
+}
+
+/* ── Colour: dark ────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme=light]) {
+    color-scheme: dark;
+    --bg: rgba(18, 17, 16, .5); --bg2: rgba(24, 23, 21, .42); --card: rgba(28, 27, 25, .8); --solid: #2a2724;
+    --chip: rgba(255, 255, 255, .08); --seg: rgba(255, 255, 255, .07); --hover: rgba(255, 255, 255, .07);
+    --press: rgba(255, 255, 255, .11); --sel: rgba(232, 100, 60, .22);
+    --line: rgba(255, 255, 255, .09); --line2: rgba(255, 255, 255, .06); --line3: rgba(255, 255, 255, .14);
+    --rim: rgba(255, 255, 255, .16);
+    --ink: #f1ede4; --body: #c5bfb3; --mu: #9a948a; --coral-ink: #ff9b7a; --on-coral: #1c1a17;
+    --note: rgba(44, 26, 18, .85); --notefg: #f3d4c4;
+    --shadow-color: 0 0 0;
+  }
+}
+[data-theme=dark] {
+  color-scheme: dark;
+  --bg: rgba(18, 17, 16, .5); --bg2: rgba(24, 23, 21, .42); --card: rgba(28, 27, 25, .8); --solid: #2a2724;
+  --chip: rgba(255, 255, 255, .08); --seg: rgba(255, 255, 255, .07); --hover: rgba(255, 255, 255, .07);
+  --press: rgba(255, 255, 255, .11); --sel: rgba(232, 100, 60, .22);
+  --line: rgba(255, 255, 255, .09); --line2: rgba(255, 255, 255, .06); --line3: rgba(255, 255, 255, .14);
+  --rim: rgba(255, 255, 255, .16);
+  --ink: #f1ede4; --body: #c5bfb3; --mu: #9a948a; --coral-ink: #ff9b7a; --on-coral: #1c1a17;
+  --note: rgba(44, 26, 18, .85); --notefg: #f3d4c4;
+  --shadow-color: 0 0 0;
+}
+
+/* ── Brand, type, shape, motion (both themes) ────────────────────── */
+:root {
+  /* Brand: coral is Claude/Glance; teal = thinking, amber = reading (the orb's states). */
+  --coral: #e8643c; --coral-hi: #ffb28f; --coral-lo: #b8431f;
+  --teal: #2a8f94; --teal-hi: #8fd9dc;
+  --amber: #d9a441;
+  --ok: #2ea043; --warn: #d9a21b; --crit: #d9402f; --del: #f85149;
+  /* The one light: coral → peach → violet → sky. Only on the glow ring and the orb's halo. */
+  --aurora: #e8643c, #ffb28f, #c96df2, #6aa8ff, #e8643c;
+
+  --sans: "DM Sans", -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Type scale (px): caption 11 · small 12 · body 13 · reading 15–16 · title 19 · display 28 */
+  --fs-caption: 11px; --fs-small: 12px; --fs-body: 13px; --fs-read: 15px; --fs-title: 19px; --fs-display: 28px;
+  --lh-tight: 1.25; --lh-body: 1.5; --lh-read: 1.65;
+
+  /* Space: a 4px grid. */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px;
+  /* Radius: concentric — an inner radius is the outer one minus the padding between them. */
+  --r-xs: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-xl: 18px; --r-pill: 999px;
+
+  /* Elevation: soft, warm, never black-on-light. */
+  --e1: 0 1px 2px rgb(var(--shadow-color) / .08);
+  --e2: 0 4px 14px rgb(var(--shadow-color) / .12), 0 1px 3px rgb(var(--shadow-color) / .08);
+  --e3: 0 12px 36px rgb(var(--shadow-color) / .2), 0 2px 8px rgb(var(--shadow-color) / .1);
+
+  /* Motion. Durations: things that arrive take longer than things that leave. */
+  --t-instant: 90ms; --t-fast: 160ms; --t-base: 240ms; --t-slow: 420ms; --t-scene: 600ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);             /* arriving */
+  --ease-in: cubic-bezier(.4, 0, 1, 1);                /* leaving */
+  --glide: cubic-bezier(.3, 1, .4, 1);                 /* position/size changes */
+  --spring: linear(0, .006, .025 2.8%, .101 6.1%, .539 18.9%, .721 25.3%, .849 31.5%, .937 38.1%, .968 41.8%,
+    .991 45.7%, 1.006 50.1%, 1.015 55%, 1.017 63.9%, 1.001 85.9%, 1); /* ~2% overshoot: SwiftUI .smooth-like */
+  --t-orbit: 3s;                                       /* one turn of the glow ring */
+
+  --z-content: 1; --z-float: 5; --z-popover: 10; --z-toast: 20;
+}
+
+/* ── Materials ───────────────────────────────────────────────────── */
+/* Glass is for chrome that floats over content (bars, popovers, the pane card), never for the content itself. */
+.g-glass, .g-glass-thin, .g-glass-thick {
+  background: var(--card);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 var(--rim), var(--e2);
+}
+.g-glass-thin { background: var(--bg2); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6); box-shadow: inset 0 1px 0 var(--rim); }
+.g-glass-thick { box-shadow: inset 0 1px 0 var(--rim), var(--e3); }
+@media (prefers-reduced-transparency: reduce) {
+  .g-glass, .g-glass-thin, .g-glass-thick { background: var(--solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* ── Signature: the glow ring ────────────────────────────────────── */
+/* A light that runs round the border of the one thing that is Claude's to offer right now (the Ask pill). Put it on
+ * at most one element per view; it animates only while .show (or :not(.g-quiet)) and stops under reduced motion. */
+.g-glow { position: relative; isolation: isolate; background: var(--solid); border: 0; }
+.g-glow::before, .g-glow::after {
+  content: ""; position: absolute; border-radius: inherit; pointer-events: none;
+  background: conic-gradient(from var(--g-angle), var(--aurora));
+}
+.g-glow::before { inset: -1.5px; padding: 1.5px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.g-glow::after { inset: -3px; z-index: -1; filter: blur(9px); opacity: .55; transition: opacity var(--t-base) var(--ease-out); }
+.g-glow:hover::after { opacity: .85; }
+.g-glow:not(.g-quiet)::before, .g-glow:not(.g-quiet)::after { animation: g-orbit var(--t-orbit) linear infinite; }
+@keyframes g-orbit { to { --g-angle: 360deg; } }
+
+/* ── Components ──────────────────────────────────────────────────── */
+.g-pill { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 6px 0 8px; border-radius: var(--r-pill);
+  font: 600 var(--fs-small) var(--sans); color: var(--ink); white-space: nowrap; box-shadow: var(--e2); cursor: pointer; }
+.g-kbd { font: 600 10.5px var(--mono); color: var(--mu); background: var(--seg); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+.g-dot { width: 11px; height: 11px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 35%, #ffc2a6, var(--coral) 55%, var(--coral-lo)); box-shadow: 0 0 7px rgb(232 100 60 / .7); }
+
+.g-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 12px;
+  border-radius: var(--r-md); border: 1px solid var(--line); background: transparent; color: var(--ink);
+  font: 500 var(--fs-small) var(--sans); cursor: pointer;
+  transition: background var(--t-fast) var(--ease-out), transform var(--t-instant) var(--ease-out); }
+.g-btn:hover { background: var(--hover); }
+.g-btn:active { background: var(--press); transform: scale(.97); }
+.g-btn.primary { background: var(--coral); border-color: var(--coral); color: var(--on-coral); font-weight: 600; }
+.g-btn.primary:hover { background: #ee7650; }
+.g-btn.quiet { border-color: transparent; color: var(--mu); }
+:where(.g-btn, .g-pill, .g-field):focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+.g-field { box-sizing: border-box; border: 1px solid var(--line); border-radius: var(--r-sm); background: transparent; color: var(--ink);
+  font: var(--fs-body) var(--sans); padding: 5px 8px; outline: none; transition: border-color var(--t-fast); }
+.g-field:focus { border-color: var(--coral); }
+
+.g-seg { display: inline-flex; padding: 2px; border-radius: var(--r-md); background: var(--seg); gap: 2px; }
+.g-seg button { border: 0; background: none; color: var(--mu); font: 500 var(--fs-small) var(--sans); padding: 4px 10px; border-radius: var(--r-sm);
+  transition: background var(--t-base) var(--glide), color var(--t-fast); }
+.g-seg button[aria-pressed=true] { background: var(--solid); color: var(--ink); box-shadow: var(--e1); }
+
+/* ── Entrances (one per element, never stacked) ──────────────────── */
+.g-fade { animation: g-fade var(--t-fast) var(--ease-out); }
+.g-rise { animation: g-rise var(--t-slow) var(--spring); }             /* a card or reply arriving */
+.g-appear { animation: g-appear var(--t-scene) var(--spring); }        /* a panel sliding in from the edge */
+.g-swap { animation: g-swap var(--t-base) var(--ease-out); }           /* content replaced in place */
+@keyframes g-fade { from { opacity: 0; } }
+@keyframes g-rise { from { opacity: 0; transform: translateY(16px) scale(.97); filter: blur(4px); } }
+@keyframes g-appear { from { opacity: 0; transform: translateX(14px) scale(.985); filter: blur(6px); } }
+@keyframes g-swap { from { opacity: 0; transform: translateY(5px); filter: blur(3px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .g-glow::before, .g-glow::after { animation: none !important; }
+  .g-rise, .g-appear, .g-swap { animation: g-fade var(--t-fast) linear; }
+  .g-btn:active { transform: none; }
+}

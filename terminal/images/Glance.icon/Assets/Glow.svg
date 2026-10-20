@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The orb's halo on the graphite tile (drawn with plus-lighter; hidden on the light tile and when tinted).
+     Blur regions are full-canvas user space: CoreSVG misplaces blurs with bounding-box regions. -->
+  <defs><filter id="halo" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024"><feGaussianBlur stdDeviation="60"/></filter></defs><g filter="url(#halo)"><g transform="translate(174.08 174.08) scale(3.3792)"><circle cx="109" cy="93" r="40" fill="#E8643C" opacity="0.55"/></g></g>
+</svg>

@@ -1,0 +1,17 @@
+.build/
+build/
+.swiftpm/
+.DS_Store
+.models/
+Web/editor/vendor/
+tools/editor-bundle/node_modules/
+.tools/
+scripts/release.env
+# Impeccable's scratch: the design hook's cache, review renders, decision-page logs, per-machine config.
+# (Its config.json, design.json and surface briefs are project records and are committed.)
+.impeccable/hook.cache.json
+.impeccable/review/
+.impeccable/questions/
+.impeccable/config.local.json
+# LLVM coverage output from instrumented test runs.
+*.profraw

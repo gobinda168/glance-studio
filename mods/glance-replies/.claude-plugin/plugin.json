@@ -1,0 +1,6 @@
+{
+  "name": "glance-replies",
+  "version": "0.1.0",
+  "description": "Draws Claude's replies in Glance Studio: tables, callouts, task lists, diagrams and highlighted code",
+  "author": { "name": "Gobinda Das" }
+}

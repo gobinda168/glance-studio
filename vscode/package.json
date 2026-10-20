@@ -1,0 +1,377 @@
+{
+  "name": "glance-claude",
+  "displayName": "Glance for Claude Code",
+  "description": "Claude Code's replies, drawn and read aloud: Markdown, live Mermaid diagrams and a voice, one click away from your code.",
+  "version": "0.1.0",
+  "publisher": "glance",
+  "license": "GPL-3.0-only",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "AI",
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "voice",
+    "mermaid",
+    "explain"
+  ],
+  "icon": "media/icon.png",
+  "main": "./out/src/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "id": "Glance Dark",
+        "label": "Glance Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/glance-dark.json"
+      },
+      {
+        "id": "Glance Light",
+        "label": "Glance Light",
+        "uiTheme": "vs",
+        "path": "./themes/glance-light.json"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "glance",
+          "title": "Glance",
+          "icon": "media/glance.svg"
+        }
+      ]
+    },
+    "views": {
+      "glance": [
+        {
+          "type": "webview",
+          "id": "glance.panel",
+          "name": "Glance",
+          "when": "config.glance.placement == sidebar && !glance.embedded"
+        }
+      ],
+      "scm": [
+        {
+          "id": "glance.claudeChanges",
+          "name": "Claude's Changes",
+          "when": "glance.embedded && config.glance.markClaudeChanges"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "glance.toggle",
+        "title": "Show / Hide Glance",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.playPause",
+        "title": "Play / Pause the Voice",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.stop",
+        "title": "Stop the Voice",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.replayLast",
+        "title": "Show the Last Reply Again",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.setElevenLabsKey",
+        "title": "Set ElevenLabs API Key",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.clearElevenLabsKey",
+        "title": "Remove ElevenLabs API Key",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.openTerminalTab",
+        "title": "Open Terminal Tab",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.closeTab",
+        "title": "Close Editor Tab",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.nextClaudeChange",
+        "title": "Next Claude Change",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.previousClaudeChange",
+        "title": "Previous Claude Change",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.clearClaudeChanges",
+        "title": "Clear Claude Change Marks",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.ask",
+        "title": "Ask Glance…",
+        "category": "Glance"
+      },
+      {
+        "command": "glance.askSubmit",
+        "title": "Ask"
+      },
+      {
+        "command": "glance.askStop",
+        "title": "Stop",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "glance.askAccept",
+        "title": "Accept",
+        "icon": "$(check)"
+      },
+      {
+        "command": "glance.askReject",
+        "title": "Reject",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "glance.askClose",
+        "title": "Close",
+        "icon": "$(close)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "glance.playPause",
+        "key": "alt+.",
+        "mac": "alt+.",
+        "when": "!glance.embedded"
+      },
+      {
+        "key": "ctrl+`",
+        "command": "glance.openTerminalTab",
+        "when": "glance.embedded"
+      },
+      {
+        "key": "ctrl+shift+`",
+        "command": "glance.openTerminalTab",
+        "when": "glance.embedded"
+      },
+      {
+        "key": "cmd+w",
+        "command": "workbench.action.closeActiveEditor",
+        "when": "glance.embedded && editorIsOpen"
+      },
+      {
+        "key": "cmd+w",
+        "command": "glance.closeTab",
+        "when": "glance.embedded && !editorIsOpen"
+      },
+      {
+        "key": "cmd+n",
+        "command": "workbench.action.files.newUntitledFile",
+        "when": "glance.embedded"
+      },
+      {
+        "key": "f7",
+        "command": "glance.nextClaudeChange",
+        "when": "glance.embedded && !isInDiffEditor"
+      },
+      {
+        "key": "shift+f7",
+        "command": "glance.previousClaudeChange",
+        "when": "glance.embedded && !isInDiffEditor"
+      },
+      {
+        "key": "cmd+i",
+        "command": "glance.ask",
+        "when": "glance.embedded && editorTextFocus"
+      },
+      {
+        "key": "cmd+enter",
+        "command": "glance.askAccept",
+        "when": "glance.embedded && glance.askPending && editorTextFocus && !commentEditorFocused"
+      },
+      {
+        "key": "escape",
+        "command": "glance.askReject",
+        "when": "glance.embedded && glance.askPending && editorTextFocus && !suggestWidgetVisible && !findWidgetVisible"
+      }
+    ],
+    "configuration": {
+      "title": "Glance",
+      "properties": {
+        "glance.placement": {
+          "type": "string",
+          "enum": [
+            "orb",
+            "sidebar"
+          ],
+          "default": "orb",
+          "enumDescriptions": [
+            "The orb in the status bar opens Glance in its own floating window, so Claude Code keeps its side bar.",
+            "Glance is a view in its own activity-bar container, which you can drag to any side bar or panel."
+          ],
+          "description": "Where Glance shows."
+        },
+        "glance.revealOnReply": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Bring Glance forward when an explanation or diagram arrives: the side bar view without taking focus, or the orb's floating window. Off: the orb says there's a new reply and you open it yourself."
+        },
+        "glance.watch": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "everywhere"
+          ],
+          "default": "workspace",
+          "enumDescriptions": [
+            "Only Claude Code sessions started inside this window's folders.",
+            "Every Claude Code session on this computer."
+          ],
+          "description": "Which Claude Code sessions Glance follows."
+        },
+        "glance.elevenLabs.voiceId": {
+          "type": "string",
+          "default": "Xb7hH8MSUJpSbSDYk0k2",
+          "description": "ElevenLabs voice ID (default: Alice)."
+        },
+        "glance.elevenLabs.model": {
+          "type": "string",
+          "default": "eleven_flash_v2_5",
+          "enum": [
+            "eleven_v4_turbo",
+            "eleven_flash_v2_5",
+            "eleven_multilingual_v2"
+          ],
+          "description": "ElevenLabs model."
+        },
+        "glance.systemVoice": {
+          "type": "string",
+          "default": "",
+          "description": "System voice name (macOS: a name from `say -v ?`). Empty uses the system default."
+        },
+        "glance.terminal.redirect": {
+          "type": "boolean",
+          "default": true,
+          "description": "In Glance Studio's editor tab, open shells as Glance Studio tabs instead of VS Code terminals."
+        },
+        "glance.markClaudeChanges": {
+          "type": "boolean",
+          "default": true,
+          "description": "In GS Code, mark the files Claude changed (a C badge) and list those still uncommitted under Source Control."
+        }
+      }
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "glance.openTerminalTab",
+          "when": "glance.embedded"
+        },
+        {
+          "command": "glance.closeTab",
+          "when": "glance.embedded"
+        },
+        {
+          "command": "glance.nextClaudeChange",
+          "when": "glance.embedded"
+        },
+        {
+          "command": "glance.previousClaudeChange",
+          "when": "glance.embedded"
+        },
+        {
+          "command": "glance.clearClaudeChanges",
+          "when": "glance.embedded"
+        },
+        {
+          "command": "glance.ask",
+          "when": "glance.embedded"
+        },
+        {
+          "command": "glance.askSubmit",
+          "when": "false"
+        },
+        {
+          "command": "glance.askStop",
+          "when": "false"
+        },
+        {
+          "command": "glance.askAccept",
+          "when": "false"
+        },
+        {
+          "command": "glance.askReject",
+          "when": "false"
+        },
+        {
+          "command": "glance.askClose",
+          "when": "false"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "glance.ask",
+          "group": "navigation@0",
+          "when": "glance.embedded && editorHasSelection"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "glance.askSubmit",
+          "group": "inline",
+          "when": "commentController == glance.ask"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "glance.askStop",
+          "group": "navigation@1",
+          "when": "commentController == glance.ask && commentThread == glance-ask-running"
+        },
+        {
+          "command": "glance.askAccept",
+          "group": "navigation@2",
+          "when": "commentController == glance.ask && commentThread == glance-ask-pending"
+        },
+        {
+          "command": "glance.askReject",
+          "group": "navigation@3",
+          "when": "commentController == glance.ask && commentThread == glance-ask-pending"
+        },
+        {
+          "command": "glance.askClose",
+          "group": "navigation@9",
+          "when": "commentController == glance.ask"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "copy-web": "node scripts/copy-web.mjs",
+    "compile": "npm run copy-web && tsc -p .",
+    "watch": "npm run copy-web && tsc -watch -p .",
+    "test": "npm run compile && node --test out/test/*.test.js",
+    "package": "npm run compile && vsce package --no-dependencies --skip-license --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,24 @@
+u
+ ▐▛███▛█   Claude Code v2.1.292
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/Code/capture-work
+
+
+❯ Use the AskUserQuestion tool to ask me one multi-select question: 'Which fruits?' with options apple, banana, cherry.
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+←  ☐ Fruits  ✔ Submit  →
+
+Which fruits?
+
+❯ 1. [ ] apple
+         Apple
+  2. [ ] banana
+         Banana
+  3. [ ] cherry
+         Cherry
+  4. [ ] Type something
+     Submit
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  5. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel

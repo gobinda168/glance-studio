@@ -1,0 +1,24 @@
+u
+ ▐▛███▛█   Claude Code v2.1.292
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/Code/capture-work
+
+
+❯ Use the AskUserQuestion tool to ask me one single-select question: 'Which color?' with options red, green, blue (each with a short
+  description).
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ☐ Color
+
+Which color?
+
+❯ 1. red
+     A warm, bold color
+  2. green
+     A fresh, natural color
+  3. blue
+     A cool, calm color
+  4. Type something.
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  5. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel

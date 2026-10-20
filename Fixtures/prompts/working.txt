@@ -1,0 +1,50 @@
+u
+ ▐▛███▛█   Claude Code v2.1.292
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/Code/capture-work
+
+
+❯ Run this exact bash command and wait for it: sleep 20
+
+  Waiting 20 seconds
+  ⎿  $ sleep 20
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+✻ Razzmatazzing… (4s · ↓ 138 tokens · thought for 2s)
+                                                            You've used 92% of your weekly limit · resets Oct 14 at 4:30pm (Asia/Calcutta)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker · restart with CLAUDE_CODE_FORCE_SESSION_PERSISTENCE=1 to keep …
+
+  ⏸ manual mode on

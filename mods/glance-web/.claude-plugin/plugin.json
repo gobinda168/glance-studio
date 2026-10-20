@@ -1,0 +1,6 @@
+{
+  "name": "glance-web",
+  "version": "0.1.0",
+  "description": "Lets Claude read the console and network log of pages open in Glance Studio's Browser, and use the Glance browser",
+  "author": { "name": "Gobinda Das" }
+}

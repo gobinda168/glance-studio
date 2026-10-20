@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glance Editor</title>
+<link rel="stylesheet" href="vendor/monaco.css">
+<link rel="stylesheet" href="editor.css">
+</head>
+<body>
+<div id="app">
+  <div id="tree">
+    <div id="tree-head"><button id="tab-files" class="on">Files</button><button id="tab-search">Search</button><button id="tab-changes">Changes</button></div>
+    <div id="files-bar">
+      <span id="files-root"></span>
+      <button id="new-file" title="New File" aria-label="New File"><svg viewBox="0 0 16 16" width="15" height="15"><path d="M8.5 14.25H4.25a1 1 0 0 1-1-1V2.75a1 1 0 0 1 1-1h4.6l3.4 3.4V8.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8.75 1.9v3.35h3.35M12.25 10.5v4M10.25 12.5h4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="new-folder" title="New Folder" aria-label="New Folder"><svg viewBox="0 0 16 16" width="15" height="15"><path d="M8.75 12.75h-5.5a1.5 1.5 0 0 1-1.5-1.5v-7a1.5 1.5 0 0 1 1.5-1.5h2.6c.4 0 .78.16 1.06.44l1.1 1.06h4.74a1.5 1.5 0 0 1 1.5 1.5v2.25" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M12.25 9.5v4M10.25 11.5h4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div id="tree-list"></div>
+    <div id="search-panel" hidden>
+      <div class="srow">
+        <input id="s-query" type="text" placeholder="Search" spellcheck="false" autocomplete="off" autocapitalize="off">
+        <button id="s-case" class="opt" title="Match case">Aa</button>
+        <button id="s-word" class="opt" title="Whole word">ab</button>
+        <button id="s-regex" class="opt" title="Regular expression">.*</button>
+      </div>
+      <div class="srow">
+        <input id="s-replace" type="text" placeholder="Replace" spellcheck="false" autocomplete="off" autocapitalize="off">
+        <button id="s-replace-all" title="Replace all matches in the project">Replace all</button>
+      </div>
+      <div id="s-summary"></div>
+      <div id="s-results"></div>
+    </div>
+    <div id="changes-panel" hidden>
+      <div id="c-commit">
+        <div id="c-msg-wrap">
+          <textarea id="c-msg" rows="1" placeholder="Message (⌘↩ to commit)" spellcheck="true" autocomplete="off"></textarea>
+          <button id="c-draft" title="Write the message with Claude" aria-label="Write the message with Claude"><svg class="i-draft" viewBox="0 0 16 16" width="14" height="14"><path d="M7 2c.45 3 1.6 4.15 4.6 4.6C8.6 7.05 7.45 8.2 7 11.2 6.55 8.2 5.4 7.05 2.4 6.6 5.4 6.15 6.55 5 7 2Z" fill="currentColor"/><path d="M12.25 9.5c.2 1.35.73 1.88 2.08 2.08-1.35.2-1.88.73-2.08 2.08-.2-1.35-.73-1.88-2.08-2.08 1.35-.2 1.88-.73 2.08-2.08Z" fill="currentColor"/></svg><svg class="i-stop" viewBox="0 0 16 16" width="14" height="14"><rect x="4.5" y="4.5" width="7" height="7" rx="1.5" fill="currentColor"/></svg></button>
+        </div>
+        <button id="c-commit-btn" disabled>Commit</button>
+        <div id="c-error" hidden></div>
+      </div>
+      <div class="srow crow">
+        <span id="c-summary"></span>
+        <label id="c-mark-label" title="Mark the files Claude changed"><input id="c-mark" type="checkbox" checked>Claude</label>
+        <button id="c-only" title="Only the files Claude changed">Only Claude's</button>
+        <button id="c-view" title="View as List" aria-label="View as List"></button>
+        <button id="c-refresh" title="Refresh">↻</button>
+      </div>
+      <div id="c-confirm" hidden><span id="c-confirm-text"></span><span class="c-confirm-actions"><button id="c-confirm-no">Cancel</button><button id="c-confirm-yes">Revert</button></span></div>
+      <div id="c-list"></div>
+    </div>
+  </div>
+  <div id="divider"></div>
+  <div id="work">
+    <div id="tabbar">
+      <button id="tree-toggle" title="Show or hide the file tree"><svg viewBox="0 0 16 16" width="16" height="16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg></button>
+      <div id="tabs"></div>
+    </div>
+    <div id="pathbar" hidden>
+      <div id="crumbs"></div>
+      <button id="copy-path" title="Copy the path (⌥-click: the full path)"><svg viewBox="0 0 16 16" width="14" height="14"><rect x="5.5" y="5.5" width="8" height="8" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 3.5v-.4A1.6 1.6 0 0 0 8.9 1.5H4.1a1.6 1.6 0 0 0-1.6 1.6v4.8a1.6 1.6 0 0 0 1.6 1.6h.4" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></button>
+      <button id="wrap-toggle" hidden><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h12M2 7.5h9.25a2.25 2.25 0 0 1 0 4.5H8"/><path d="M9.6 10.4 8 12l1.6 1.6M2 12h3"/></svg></button>
+      <button id="format-doc" title="Format Document (⇧⌥F)" hidden><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M2 3h12M5 6.3h9M5 9.6h7M2 13h12"/></svg></button>
+      <div id="pv-modes" hidden><button data-mode="code" title="Code only">Code</button><button data-mode="split" title="Code and preview side by side">Split</button><button data-mode="preview" title="Preview only">Preview</button></div>
+    </div>
+    <div id="banner" hidden><span id="banner-text"></span><span id="banner-actions"></span></div>
+    <div id="empty"><div><div class="big">⌘P</div><div>Open a file</div></div></div>
+    <div id="diffbar" hidden><span id="diff-title"></span><button id="diff-layout">Inline</button><button id="diff-prev" title="Previous change">↑</button><button id="diff-next" title="Next change">↓</button><button id="diff-close">Close diff</button></div>
+    <div id="diff" hidden></div>
+    <div id="panes" hidden><div id="editor" hidden></div><div id="preview" hidden></div></div>
+  </div>
+</div>
+<div id="statusbar">
+  <button id="sb-branch" hidden><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="4.5" cy="3.5" r="1.6"/><circle cx="4.5" cy="12.5" r="1.6"/><circle cx="11.5" cy="5.5" r="1.6"/><path d="M4.5 5.1v5.8M11.5 7.1c0 2.6-2.2 3-4.4 3.6-1.3.4-2.2.9-2.6 1.8"/></svg><span id="sb-branch-name"></span></button>
+  <span class="sb-gap"></span>
+  <span id="sb-cursor" hidden></span>
+  <span id="sb-lang" hidden></span>
+</div>
+<div id="branch-picker" hidden>
+  <input id="bq" type="text" spellcheck="false" autocomplete="off" autocapitalize="off">
+  <ul id="bresults"></ul>
+  <div id="berror" hidden></div>
+</div>
+<div id="palette" hidden>
+  <input id="q" type="text" placeholder="Open file…" spellcheck="false" autocomplete="off" autocapitalize="off">
+  <ul id="results"></ul>
+</div>
+<script src="vendor/monaco.js"></script>
+<script src="../vendor/markdown-it.min.js"></script>
+<script src="../vendor/highlight.min.js"></script>
+<script src="editor.js"></script>
+<script src="search.js"></script>
+<script src="changes.js"></script>
+<script src="ask.js"></script>
+<script src="preview.js"></script>
+<script src="format.js"></script>
+<script src="statusbar.js"></script>
+</body>
+</html>

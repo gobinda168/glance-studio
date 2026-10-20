@@ -1,0 +1,13 @@
+{
+  "name": "glance-editor-bundle",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "description": "Builds Monaco into Web/editor/vendor for the Glance editor. Build-time only.",
+  "dependencies": {
+    "monaco-editor": "0.57.0",
+    "prettier": "3.9.9"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

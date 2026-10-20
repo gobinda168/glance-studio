@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:">
+  <title>Glance</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="panel" class="panel">
+
+  <header class="bar">
+    <div class="orb-slot"></div>
+    <div class="titles">
+      <div class="title" id="title">Glance</div>
+      <div class="status"><span class="swap" id="status">WAITING FOR CLAUDE</span></div>
+    </div>
+    <div class="actions" role="group" aria-label="Glance">
+      <button class="icon sum-btn" id="summary-btn" title="Summary of this session" aria-pressed="false" hidden>
+        <svg viewBox="0 0 12 12"><rect x="2" y="1.4" width="8" height="9.2" rx="1.6"/><path d="M4 4.2h4M4 6.2h4M4 8.2h2.4"/></svg>
+      </button>
+      <button class="icon play" id="play" title="Read aloud  ⌥.">
+        <svg class="i-play" viewBox="0 0 12 12"><path d="M3 1.6v8.8L10.4 6z"/></svg>
+        <svg class="i-pause" viewBox="0 0 12 12"><rect x="2.4" y="1.8" width="2.6" height="8.4" rx=".7"/><rect x="7" y="1.8" width="2.6" height="8.4" rx=".7"/></svg>
+      </button>
+      <button class="icon pin" id="pin" hidden>
+        <svg class="i-pin" viewBox="0 0 12 12"><path d="M4.2 1.4h3.6l-.5 3.1 1.9 1.9H2.8l1.9-1.9z"/><path class="needle" d="M6 6.4v4.4"/></svg>
+        <svg class="i-float" viewBox="0 0 12 12"><circle cx="6" cy="5.2" r="3.4"/><ellipse class="shadow" cx="6" cy="10.6" rx="2.6" ry=".7"/></svg>
+        <span class="auto-a">A</span>
+      </button>
+      <button class="icon" id="theme" title="Toggle theme"><span id="theme-icon">☀︎</span></button>
+      <button class="icon" id="gear" title="Settings"><span id="gear-icon">⚙︎</span></button>
+      <button class="icon close" id="close" title="Hide  ⌥Space">✕</button>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <div class="orb big" id="orb" data-mode="idle" title="Click to expand / shrink">
+    <div class="glow"></div>
+    <div class="ripple"></div>
+    <div class="ripple late"></div>
+    <div class="think"><span></span><span></span><span></span></div>
+    <div class="read-ring"></div>
+    <div class="body" id="orb-body">
+      <div class="core">
+        <div class="layer idle"></div>
+        <div class="layer thinking"></div>
+        <div class="layer reading"></div>
+        <div class="scan"></div>
+        <div class="shine"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main" id="main">
+    <div class="stage" id="stage">
+      <div class="stage-title"><span class="swap" id="orb-title">Idle</span></div>
+      <div class="stage-sub"><span class="swap" id="orb-sub">READY WHEN YOU ARE</span></div>
+      <div class="seg small" id="modes">
+        <span data-v="idle">Idle</span><span data-v="thinking">Thinking</span><span data-v="reading">Reading</span><span data-v="speaking">Speaking</span>
+      </div>
+    </div>
+
+    <div class="chat" id="chat">
+      <main id="reply">
+        <div class="empty">
+          <div class="empty-title" id="empty-title">Waiting for Claude</div>
+          <span id="empty-body">Ask Claude Code something in your terminal. The reply appears here, drawn. Press play or ⌥. to hear it.</span>
+        </div>
+      </main>
+    </div>
+    <div class="thread" id="thread">
+      <div class="thread-earlier" id="thread-earlier" hidden>Earlier messages aren’t shown</div>
+      <button type="button" class="thread-fold" id="thread-fold" hidden>Fold all</button>
+      <div class="thread-list" id="thread-list"></div>
+      <div class="thread-empty" id="thread-empty">
+        <div class="recents" id="recents" hidden>
+          <div class="recents-label">Recent conversations</div>
+          <div class="recents-list" id="recents-list"></div>
+        </div>
+        <p class="thread-hint">Ask Claude Code about this project. It can read and edit files; the conversation shows here.</p>
+      </div>
+    </div>
+
+    <section class="summary" id="summary" aria-label="Session summary">
+      <div class="sum-head">
+        <button type="button" class="sum-back" id="sum-back" title="Back  Esc" aria-label="Back">
+          <svg viewBox="0 0 12 12"><path d="M7.4 2.6 4 6l3.4 3.4"/></svg>
+        </button>
+        <div class="sum-titles">
+          <div class="sum-title" id="sum-title">This session</div>
+          <div class="sum-meta" id="sum-meta"></div>
+        </div>
+        <button type="button" class="sum-refresh" id="sum-refresh" title="Update the summary" hidden>
+          <svg viewBox="0 0 12 12"><path d="M9.8 5.2A3.9 3.9 0 1 0 9 8.4"/><path d="M10 2.4v2.9H7.1"/></svg>
+          <span>Refresh</span>
+        </button>
+      </div>
+      <div class="sum-progress" id="sum-progress" hidden><span></span></div>
+      <button type="button" class="sum-stale" id="sum-stale" hidden><span class="sum-dot"></span>New turns since this summary<span class="sum-stale-go">Update</span></button>
+      <div class="sum-error" id="sum-error" hidden></div>
+      <div class="sum-body" id="sum-body"></div>
+      <div class="sum-empty" id="sum-empty" hidden>
+        <div class="sum-empty-title" id="sum-empty-title">No summary yet</div>
+        <p class="sum-empty-text" id="sum-empty-text"></p>
+        <button type="button" class="sum-go" id="sum-go">Summarize</button>
+      </div>
+    </section>
+
+    <div class="settings" id="settings">
+      <section>
+        <div class="label">VOICE</div>
+        <div class="seg" id="voices"></div>
+      </section>
+      <section>
+        <div class="label-row"><span class="label">SPEED</span><span class="value" id="speed-label">1.0×</span></div>
+        <input type="range" id="speed" min="0.75" max="1.5" step="0.05" value="1">
+        <div class="ticks"><span>0.75×</span><span>1×</span><span>1.5×</span></div>
+      </section>
+      <section>
+        <div class="label">THEME</div>
+        <div class="seg" id="themes"><span data-v="dark">Dark</span><span data-v="light">Light</span></div>
+      </section>
+      <section>
+        <div class="label">TEXT SIZE</div>
+        <div class="seg" id="sizes">
+          <span data-v="0" style="font-size:12px">Aa</span><span data-v="1" style="font-size:15px">Aa</span><span data-v="2" style="font-size:18px">Aa</span>
+        </div>
+      </section>
+      <div class="toggles" id="toggles">
+        <div class="toggle" data-key="animate"><div class="text"><div class="t">Animate diagrams</div><div class="s">Draw arrows step by step</div></div><div class="track"><span></span></div></div>
+        <div class="toggle" data-key="follow"><div class="text"><div class="t">Follow along</div><div class="s">Dim sections that haven’t been read yet</div></div><div class="track"><span></span></div></div>
+        <div class="toggle" data-key="auto"><div class="text"><div class="t">Read new answers aloud</div><div class="s">Starts as soon as a response arrives</div></div><div class="track"><span></span></div></div>
+      </div>
+      <div class="foot">
+        <span class="kbd">⌥.</span>play / pause
+        <span class="link" id="reset">Reset to defaults</span>
+      </div>
+      <div class="more" id="more">Voices, API keys and dictation are in <span class="link">Glance Settings…</span></div>
+    </div>
+  </div>
+  <form class="composer" id="composer" hidden>
+    <div class="composer-box" id="composer-box">
+      <textarea id="prompt" rows="1" placeholder="Ask Claude Code…" spellcheck="false"></textarea>
+      <div class="composer-row">
+        <span class="ctx" id="ctx" hidden><span class="ctx-text" id="ctx-text"></span><button type="button" class="ctx-x" id="ctx-x" title="Don’t send the file and selection">✕</button></span>
+        <span class="route" id="route"></span>
+        <span class="sessions" id="sessions" hidden>
+          <button type="button" class="hamburger" id="picker" aria-haspopup="menu" aria-expanded="false" title="Chats and terminal sessions">
+            <svg viewBox="0 0 12 12"><path d="M2 3.4h8M2 6h8M2 8.6h8"/></svg>
+          </button>
+          <div class="menu" id="menu" role="menu" hidden>
+            <div class="menu-page" id="menu-main">
+              <button type="button" class="menu-item menu-new" id="chat-new" role="menuitem">New chat</button>
+              <div class="menu-list" id="menu-list"></div>
+              <div class="menu-sep"></div>
+              <button type="button" class="menu-item menu-more" id="menu-terminals" role="menuitem">
+                <span class="t">Terminal sessions</span>
+                <svg viewBox="0 0 12 12"><path d="M4.6 2.6 8 6l-3.4 3.4"/></svg>
+              </button>
+            </div>
+            <div class="menu-page" id="menu-terms" hidden>
+              <button type="button" class="menu-item menu-back" id="menu-terms-back" role="menuitem">
+                <svg viewBox="0 0 12 12"><path d="M7.4 2.6 4 6l3.4 3.4"/></svg>
+                <span class="t">Terminal sessions</span>
+              </button>
+              <div class="menu-list" id="menu-terms-list"></div>
+              <div class="menu-none" id="menu-terms-none" hidden>No terminal sessions in this project yet. Start <code>claude</code> in a terminal here.</div>
+            </div>
+          </div>
+        </span>
+        <button type="submit" class="send" id="send" title="Send  ↩"><svg viewBox="0 0 12 12"><path d="M6 10V2.4M2.6 5.6 6 2.2l3.4 3.4"/></svg></button>
+      </div>
+    </div>
+    <div class="composer-notice" id="composer-notice" hidden></div>
+  </form>
+</div>
+
+<script src="vendor/markdown-it.min.js"></script>
+<script src="vendor/highlight.min.js"></script>
+<script src="vendor/mermaid.min.js"></script>
+<script src="app.js"></script>
+<script src="panel.js"></script>
+<script src="chat.js"></script>
+<script src="summary.js"></script>
+</body>
+</html>
