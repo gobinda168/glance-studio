@@ -4,7 +4,7 @@ Thanks for trying Glance. It is one app, Glance Studio: a terminal with Glance b
 
 ## Install
 
-1. Download the DMG: https://github.com/gobinda168/glance-releases/releases/download/feed-terminal/Glance-Studio.dmg
+1. Download the DMG: https://github.com/gobinda168/glance-studio/releases/download/feed-terminal/Glance-Studio.dmg
 2. Open it and **drag the app to Applications**. Run it from Applications, not from the DMG or Downloads, or it can't update itself.
 3. The first time only, macOS will say it can't verify the app (it isn't from the App Store or notarized). Right-click the app in Applications → **Open** → **Open**. If that still refuses, run in Terminal:
    `xattr -dr com.apple.quarantine "/Applications/Glance Studio.app"`.

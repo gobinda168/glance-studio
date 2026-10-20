@@ -2,7 +2,7 @@
 
 Glance Studio is a macOS workspace for Claude Code: a terminal built on [Ghostty](https://ghostty.org), with editors,
 pull requests, a browser, notes and automations around it. You direct, the agents build. Download the signed app from
-the [releases page](https://github.com/gobinda168/glance-releases/releases); this repository is its source, under the
+the [releases page](https://github.com/gobinda168/glance-studio/releases); this repository is its source, under the
 GPL-3.0 (see [License](#license)).
 
 At its heart is the Glance panel, a voice-orb explainer for Claude Code. When Claude finishes a reply, Glance docks a
@@ -125,7 +125,7 @@ The Claude Code transcript format is internal and undocumented. Only `Sources/Gl
 
 ## Releasing
 
-`scripts/release.sh terminal` builds, signs, zips, writes the Sparkle appcast, makes the DMG and publishes to the public `glance-releases` repo. First-time setup, tester instructions and the key-backup warning are in `docs/testing.md` and the header of `scripts/release.sh`. Bump the version in `Info.plist`; the build number is the commit count.
+`scripts/release.sh terminal` builds, signs, zips, writes the Sparkle appcast, makes the DMG and publishes it as a release of the public source repo, `gobinda168/glance-studio`, tagged on the source snapshot it was built from (`scripts/oss-export.sh`). Until `LEGACY_RELEASES_REPO` is removed from `scripts/release.env`, it also updates the old `glance-releases` feed, which 0.1.0-beta.17 and earlier check. First-time setup, tester instructions and the key-backup warning are in `docs/testing.md` and the header of `scripts/release.sh`. Bump the version in `Info.plist`; the build number is the commit count.
 
 ## Landing page clips
 

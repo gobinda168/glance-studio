@@ -6,6 +6,9 @@
 #   scripts/release.sh terminal                → build, sign, zip, appcast, DMG, publish
 # Config: scripts/release.env (see release.env.example). Losing the keychain key or the signing certificate strands
 # every installed tester, so run export-keys and keep the file somewhere safe.
+# Releases live in the public source repository (gobinda168/glance-studio): each release's tag is the public snapshot
+# it was built from (scripts/oss-export.sh). LEGACY_RELEASES_REPO, while set, also gets the appcast and DMG, so builds
+# that still check the old feed (0.1.0-beta.17 and earlier read gobinda168/glance-releases) update onto the new one.
 set -eu
 root="$(cd "$(dirname "$0")/.." && pwd)"
 sparkle_version="2.9.6"
@@ -14,6 +17,7 @@ dmgbuild_version="1.6.5"
 dmgbuild="$root/.tools/dmgbuild-$dmgbuild_version/bin/dmgbuild"
 [ -f "$root/scripts/release.env" ] && . "$root/scripts/release.env"
 target="${RELEASE_TARGET:-github}"
+RELEASES_REPO="${RELEASES_REPO:-gobinda168/glance-studio}"
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -41,6 +45,7 @@ fetch_dmgbuild() {
 }
 
 min_system="15.0"
+oss_dir="${GLANCE_OSS_DIR:-$HOME/Code/glance-studio}"
 certificate="Glance Local Signing"
 
 configure() {
@@ -63,8 +68,9 @@ local_dir() { echo "${target#local:}"; }
 preflight() {
   case "$target" in
     github)
-      [ -n "${RELEASES_REPO:-}" ] || die "set RELEASES_REPO in scripts/release.env"
       gh auth status >/dev/null 2>&1 || die "gh is not logged in (run: gh auth login)"
+      command -v gitleaks >/dev/null || die "the source export needs gitleaks (brew install gitleaks)"
+      [ -z "$(git -C "$oss_dir" status --porcelain 2>/dev/null)" ] || die "$oss_dir has uncommitted changes"
       ;;
     local:*)
       [ -n "${RELEASE_BASE_URL:-}" ] || die "a local target needs RELEASE_BASE_URL (where the directory is served)"
@@ -83,14 +89,18 @@ preflight() {
   fetch_dmgbuild
 }
 
-# The build number of the appcast currently published for this app, or empty if there is none yet.
+# The highest build number in the appcasts currently published for this app (the legacy feed's too), or empty if
+# there is none yet.
 published_build() {
   if [ "$target" = github ]; then
     feed="$(curl -fsSL "$(base_url)/feed-$slug/appcast.xml" 2>/dev/null || true)"
+    if [ -n "${LEGACY_RELEASES_REPO:-}" ]; then
+      feed="$feed$(curl -fsSL "https://github.com/$LEGACY_RELEASES_REPO/releases/download/feed-$slug/appcast.xml" 2>/dev/null || true)"
+    fi
   else
     feed="$(cat "$(local_dir)/feed-$slug/appcast.xml" 2>/dev/null || true)"
   fi
-  printf '%s' "$feed" | sed -n 's|.*<sparkle:version>\([0-9][0-9]*\)</sparkle:version>.*|\1|p' | head -1
+  printf '%s' "$feed" | sed -n 's|.*<sparkle:version>\([0-9][0-9]*\)</sparkle:version>.*|\1|p' | sort -n | tail -1
 }
 
 write_appcast() { # <file> <version> <build> <url> <signature attributes>
@@ -125,15 +135,26 @@ publish_local() { # <tag> <zip> <appcast> <dmg>
 
 publish_github() { # <tag> <zip> <appcast> <dmg>
   gh release view "$1" --repo "$RELEASES_REPO" >/dev/null 2>&1 && die "release $1 already exists on $RELEASES_REPO"
-  # The zip first: nobody should see an appcast that points at a file that isn't there yet.
+  # The source first (GPL-3.0): the release's tag goes on the public snapshot of the commit it was built from.
+  GLANCE_OSS_DIR="$oss_dir" "$root/scripts/oss-export.sh" --push HEAD
+  source_commit="$(git -C "$oss_dir" rev-parse HEAD)"
+  [ "$(git -C "$oss_dir" rev-parse origin/main)" = "$source_commit" ] || die "the source snapshot in $oss_dir isn't pushed"
+  # The zip next: nobody should see an appcast that points at a file that isn't there yet.
   # A version with a suffix (0.1.0-beta.1) is a pre-release on GitHub; Sparkle still offers it (it orders by build).
   prerelease=""
   case "$version" in *-*) prerelease="--prerelease" ;; esac
-  gh release create "$1" "$2" --repo "$RELEASES_REPO" --title "$name $version ($build)" --notes "${RELEASE_NOTES:-}" $prerelease
-  gh release view "feed-$slug" --repo "$RELEASES_REPO" >/dev/null 2>&1 \
-    || gh release create "feed-$slug" --repo "$RELEASES_REPO" --title "$name feed" --latest=false \
+  gh release create "$1" "$2" --repo "$RELEASES_REPO" --target "$source_commit" --title "$name $version ($build)" \
+    --notes "${RELEASE_NOTES:-}" $prerelease
+  publish_feed "$RELEASES_REPO" "$3" "$4"
+  [ -n "${LEGACY_RELEASES_REPO:-}" ] && publish_feed "$LEGACY_RELEASES_REPO" "$3" "$4"
+  return 0
+}
+
+publish_feed() { # <repo> <appcast> <dmg>
+  gh release view "feed-$slug" --repo "$1" >/dev/null 2>&1 \
+    || gh release create "feed-$slug" --repo "$1" --title "$name feed" --latest=false \
          --notes "The stable update feed and installer for $name. Do not delete."
-  gh release upload "feed-$slug" "$3" "$4" --repo "$RELEASES_REPO" --clobber
+  gh release upload "feed-$slug" "$2" "$3" --repo "$1" --clobber
 }
 
 release_app() {

@@ -7,7 +7,7 @@ extension UpdateDriver: SPUUpdaterDelegate {
         // GLANCE: the feed lives here, not in Info.plist: Ghostty-Info.plist goes through the C preprocessor, which
         // eats everything after "//" in a URL. GLANCE_FEED_URL points a build at a local server to test a release.
         UpdateFeed.override(environment: ProcessInfo.processInfo.environment)
-            ?? "https://github.com/gobinda168/glance-releases/releases/download/feed-terminal/appcast.xml"
+            ?? "https://github.com/gobinda168/glance-studio/releases/download/feed-terminal/appcast.xml"
     }
 
     /// Called when an update is scheduled to install silently,
