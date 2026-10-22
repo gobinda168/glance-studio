@@ -1,9 +1,64 @@
-# Glance
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-dark.svg">
+    <img src="assets/readme/hero-light.svg" width="100%" alt="Glance Studio. You direct. The agents build.">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://github.com/gobinda168/glance-studio/releases/latest"><img src="https://img.shields.io/badge/status-public_beta-e8643c?style=for-the-badge&labelColor=1c1a17" alt="Public beta"></a>
+  <img src="https://img.shields.io/badge/macOS-15%2B-f1ede4?style=for-the-badge&logo=apple&logoColor=f1ede4&labelColor=1c1a17&color=4a453d" alt="macOS 15 or later">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-f1ede4?style=for-the-badge&labelColor=1c1a17&color=4a453d" alt="GPL-3.0"></a>
+  <a href="https://ghostty.org"><img src="https://img.shields.io/badge/built_on-Ghostty-f1ede4?style=for-the-badge&labelColor=1c1a17&color=4a453d" alt="Built on Ghostty"></a>
+  <img src="https://img.shields.io/badge/Swift-native-f1ede4?style=for-the-badge&logo=swift&logoColor=f1ede4&labelColor=1c1a17&color=4a453d" alt="Native Swift">
+</p>
+
+<p align="center">
+  <a href="https://github.com/gobinda168/glance-studio/releases/download/feed-terminal/Glance-Studio.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-e8643c?style=for-the-badge&logo=apple&logoColor=1c1a17&labelColor=e8643c" height="44" alt="Download Glance Studio for macOS"></a>
+  &nbsp;
+  <a href="https://glance.buildwithgd.in"><img src="https://img.shields.io/badge/glance.buildwithgd.in-1c1a17?style=for-the-badge&logo=safari&logoColor=f1ede4" height="44" alt="Website"></a>
+</p>
 
 Glance Studio is a macOS workspace for Claude Code: a terminal built on [Ghostty](https://ghostty.org), with editors,
-pull requests, a browser, notes and automations around it. You direct, the agents build. Download the signed app from
-the [releases page](https://github.com/gobinda168/glance-studio/releases); this repository is its source, under the
-GPL-3.0 (see [License](#license)).
+pull requests, a browser, notes and automations around it. Claude's replies are read aloud and drawn as they're
+spoken, agents and automations run in the background, and your secrets stay out of the model's sight. This repository
+is its source, under the GPL-3.0 (see [License](#license)).
+
+https://github.com/user-attachments/assets/525d44c8-ff59-47e4-a605-8d96478df776
+
+<p align="center"><sub>First run: set up in a minute, then straight to work.</sub></p>
+
+## See it work
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="assets/readme/reply-panel.gif" width="100%" alt="A Claude reply rendered beside the terminal, its diagram drawing step by step">
+      <p><b>Replies you can hear and see.</b> Markdown, code and real Mermaid diagrams, read aloud while each diagram draws itself.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="assets/readme/agents.gif" width="100%" alt="An agent fixing a failing CI run step by step">
+      <p><b>Agents.</b> Claude works on a trigger, like a red CI run, and stops to ask you before it decides anything.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="assets/readme/automations.gif" width="100%" alt="An automation writing a morning pull request digest">
+      <p><b>Automations.</b> Describe a chore once. Claude builds it, and it runs on a schedule after you approve it.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="assets/readme/secrets.gif" width="100%" alt="Claude using a GitHub token approved with Touch ID without seeing it">
+      <p><b>Secrets.</b> Claude uses your tokens through Glance, approved with Touch ID. It never sees them.</p>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=le-XBNeWk9o"><img src="assets/readme/terminal-tour.jpg" width="70%" alt="Watch the Glance terminal tour on YouTube"></a>
+  <br><sub>▶ The full terminal tour on YouTube (1:42)</sub>
+</p>
+
+## The Glance panel
 
 At its heart is the Glance panel, a voice-orb explainer for Claude Code. When Claude finishes a reply, Glance docks a
 panel to the right of your terminal window and does three things:
@@ -34,9 +89,9 @@ npm test              # core ported from GlanceCore, plus the transcript watcher
 npm run package       # → glance-claude-0.1.0.vsix; install with: code --install-extension glance-claude-0.1.0.vsix
 ```
 
-## Glance Studio
+## Build from source
 
-A terminal with the Glance panel built in: [Ghostty](https://ghostty.org) (MIT) with a Glance side pane in every
+Glance Studio is a terminal with the Glance panel built in: [Ghostty](https://ghostty.org) (MIT) with a Glance side pane in every
 window. The pane follows the focused split. It shows the Claude Code session running in that split's folder, reads its
 replies aloud, and hold-fn dictation types straight into the split. It needs no hooks (it watches
 `~/.claude/projects`) and no Accessibility permission.
@@ -92,6 +147,9 @@ To try it without Claude, run `scripts/demo.sh` while Glance is running.
 
 The menu-bar icon has the same actions, plus mute. Run `glance unsetup` (the helper in `Glance Studio.app/Contents/MacOS`) to remove the hooks, the status line (your own comes back) and the output style.
 
+<details>
+<summary><b>More setup notes</b>: plan usage, panel settings, keeping permissions across rebuilds</summary>
+
 Studio's top bar shows your plan usage (the 5-hour and weekly limits, on claude.ai plans: Pro, Max and Team seats). It
 is fed by the status line `glance setup` installs; an existing `statusLine` keeps working. On a new Mac, Studio does
 this setup itself at first launch, once Claude Code is installed (hooks, status line, output style and the "glance" MCP
@@ -105,6 +163,8 @@ macOS remembers Accessibility, Microphone and Keychain **Always Allow** per sign
 `scripts/build.sh signing-identity` once: it creates a local, self-signed "Glance Local Signing" certificate in your
 login keychain, and every build is then signed with it, so those grants survive rebuilds. Without it builds are
 signed ad hoc, and macOS asks again after each rebuild.
+
+</details>
 
 ## Development
 
@@ -122,24 +182,6 @@ scripts/build-terminal.sh build    # → build/Glance Studio.app; the first buil
 - `hooks/statusline.sh`: the status-line script (saves Claude Code's plan limits for the usage strip).
 
 The Claude Code transcript format is internal and undocumented. Only `Sources/GlanceCore/Transcript.swift` depends on it.
-
-## Releasing
-
-`scripts/release.sh terminal` builds, signs, zips, writes the Sparkle appcast, makes the DMG and publishes it as a release of the public source repo, `gobinda168/glance-studio`, tagged on the source snapshot it was built from (`scripts/oss-export.sh`). Until `LEGACY_RELEASES_REPO` is removed from `scripts/release.env`, it also updates the old `glance-releases` feed, which 0.1.0-beta.17 and earlier check. First-time setup, tester instructions and the key-backup warning are in `docs/testing.md` and the header of `scripts/release.sh`. Bump the version in `Info.plist`; the build number is the commit count.
-
-## Landing page clips
-
-The site (`../glance-site`) shows clips recorded from the real app. `scripts/record-demo.sh` plays a scripted reply
-from `Fixtures/site/<scene>.jsonl` in Glance Studio (a tab in a demo project, the transcript written the way Claude
-Code writes it), records the window with its sound (`scripts/record-window.swift`, ScreenCaptureKit), and encodes it
-into the site's `public/media/` and `src/media/clips.json`. Re-record after UI changes and commit the site.
-
-```sh
-scripts/record-demo.sh cookie-fix 40         # a scene, recorded for 40 s
-scripts/record-demo.sh live studio-tour 45   # record while you drive the app (Ctrl-C stops early)
-```
-
-Needs ffmpeg, the pane shown, and Screen Recording permission for your terminal.
 
 ## Roadmap
 

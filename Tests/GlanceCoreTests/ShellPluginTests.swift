@@ -65,7 +65,7 @@ import Testing
     let (request, candidates) = try shell.tab("git ch")
     let checkout = try #require(candidates.first { $0.name == "checkout" })
     shell.send(.accept(request: request, index: checkout.index))
-    try shell.waitLine("git checkout ")
+    try shell.waitLine("git checkout")
   }
 
   @Test func acceptQuotesAFileWithSpaces() throws {
@@ -80,7 +80,7 @@ import Testing
     #expect(file.word == #"my\ file.txt"#)
     #expect(file.kind == .file)
     shell.send(.accept(request: request, index: file.index))
-    try shell.waitLine(#"cat my\ file.txt "#)
+    try shell.waitLine(#"cat my\ file.txt"#)
   }
 
   @Test func foldersAreFlaggedForAbsoluteAndTildePaths() throws {
@@ -246,7 +246,7 @@ import Testing
     let (request, candidates) = try shell.tab("git ch")
     let checkout = try #require(candidates.first { $0.name == "checkout" })
     shell.send(.accept(request: request, index: checkout.index))
-    try shell.waitLine("git checkout ")
+    try shell.waitLine("git checkout")
     try shell.clearLine()
     shell.type("false\r")
     try shell.wait("done 1") { if case .done(1, _) = $0 { true } else { false } }

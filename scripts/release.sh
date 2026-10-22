@@ -140,11 +140,10 @@ publish_github() { # <tag> <zip> <appcast> <dmg>
   source_commit="$(git -C "$oss_dir" rev-parse HEAD)"
   [ "$(git -C "$oss_dir" rev-parse origin/main)" = "$source_commit" ] || die "the source snapshot in $oss_dir isn't pushed"
   # The zip next: nobody should see an appcast that points at a file that isn't there yet.
-  # A version with a suffix (0.1.0-beta.1) is a pre-release on GitHub; Sparkle still offers it (it orders by build).
-  prerelease=""
-  case "$version" in *-*) prerelease="--prerelease" ;; esac
+  # Every release is the repo's Latest, betas too: GitHub never makes a pre-release Latest, so the repo page would show
+  # the feed release instead. The version (0.1.0-beta.1) still says it's a beta; Sparkle orders by build either way.
   gh release create "$1" "$2" --repo "$RELEASES_REPO" --target "$source_commit" --title "$name $version ($build)" \
-    --notes "${RELEASE_NOTES:-}" $prerelease
+    --notes "${RELEASE_NOTES:-}" --latest
   publish_feed "$RELEASES_REPO" "$3" "$4"
   [ -n "${LEGACY_RELEASES_REPO:-}" ] && publish_feed "$LEGACY_RELEASES_REPO" "$3" "$4"
   return 0

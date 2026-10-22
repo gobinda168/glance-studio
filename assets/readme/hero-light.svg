@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img"
+     aria-label="Glance Studio. You direct. The agents build.">
+  <title>Glance Studio — You direct. The agents build.</title>
+  <defs>
+    <radialGradient id="orb" cx="0.36" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#ffb08f"/><stop offset="0.55" stop-color="#e8643c"/><stop offset="1" stop-color="#b93a18"/>
+    </radialGradient>
+    <radialGradient id="halo"><stop offset="0" stop-color="#e8643c" stop-opacity="0.55"/><stop offset="1" stop-color="#e8643c" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowA"><stop offset="0" stop-color="#e8643c" stop-opacity="0.18"/><stop offset="1" stop-color="#e8643c" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowB"><stop offset="0" stop-color="#c96df2" stop-opacity="0.18"/><stop offset="1" stop-color="#c96df2" stop-opacity="0"/></radialGradient>
+    <clipPath id="frame"><rect width="1280" height="360" rx="24"/></clipPath>
+  </defs>
+  <style>
+    .drift-a { animation: driftA 14s ease-in-out infinite alternate; }
+    .drift-b { animation: driftB 18s ease-in-out infinite alternate; }
+    .breathe { transform-box: fill-box; transform-origin: center; animation: breathe 3.2s ease-in-out infinite; }
+    .halo { transform-box: fill-box; transform-origin: center; animation: halo 3.2s ease-in-out infinite; }
+    .ray { stroke-width: 5; stroke-linecap: round; transform-box: fill-box; transform-origin: 50% 100%;
+            animation-name: speak; animation-iteration-count: infinite; animation-direction: alternate;
+            animation-timing-function: ease-in-out; }
+    .ch { opacity: 0; animation: type 0.01s linear forwards; }
+    .caret { opacity: 0; animation: blink 1s steps(1) infinite; }
+    .chip { opacity: 0; animation: rise 0.6s cubic-bezier(.2,.8,.2,1) forwards; }
+    .fade { opacity: 0; animation: rise 0.8s cubic-bezier(.2,.8,.2,1) forwards; }
+    @keyframes driftA { from { transform: translate(0,0); } to { transform: translate(120px, 40px); } }
+    @keyframes driftB { from { transform: translate(0,0); } to { transform: translate(-140px, -30px); } }
+    @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+    @keyframes halo { 0%,100% { transform: scale(0.92); opacity: .55; } 50% { transform: scale(1.12); opacity: .9; } }
+    @keyframes speak { from { transform: scaleY(0.35); } to { transform: scaleY(1.25); } }
+    @keyframes type { to { opacity: 1; } }
+    @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      .drift-a, .drift-b, .breathe, .halo, .ray { animation: none; }
+      .ch, .chip, .fade { animation: none; opacity: 1; }
+      .caret { animation: none; opacity: 1; }
+    }
+  </style>
+  <g clip-path="url(#frame)">
+    <rect width="1280" height="360" fill="#f4f1ea"/>
+    <ellipse class="drift-a" cx="260" cy="140" rx="420" ry="260" fill="url(#glowA)"/>
+    <ellipse class="drift-b" cx="1060" cy="260" rx="460" ry="240" fill="url(#glowB)"/>
+    <g transform="translate(250 180)">
+      <circle class="halo" r="120" fill="url(#halo)"/>
+      <g transform="rotate(0.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-88" stroke="#e8643c" style="animation-delay:0.48s;animation-duration:1.15s"/></g>
+      <g transform="rotate(15.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-92" stroke="#e8643c" style="animation-delay:0.81s;animation-duration:1.22s"/></g>
+      <g transform="rotate(30.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-80" stroke="#d9a441" style="animation-delay:1.32s;animation-duration:1.23s"/></g>
+      <g transform="rotate(45.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-100" stroke="#e8643c" style="animation-delay:0.09s;animation-duration:1.41s"/></g>
+      <g transform="rotate(60.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-88" stroke="#e8643c" style="animation-delay:0.91s;animation-duration:1.6s"/></g>
+      <g transform="rotate(75.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-92" stroke="#e8643c" style="animation-delay:0.4s;animation-duration:1.17s"/></g>
+      <g transform="rotate(90.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-100" stroke="#e8643c" style="animation-delay:0.49s;animation-duration:1.56s"/></g>
+      <g transform="rotate(105.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-88" stroke="#d9a441" style="animation-delay:0.24s;animation-duration:0.98s"/></g>
+      <g transform="rotate(120.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-80" stroke="#e8643c" style="animation-delay:0.31s;animation-duration:1.1s"/></g>
+      <g transform="rotate(135.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-100" stroke="#e8643c" style="animation-delay:0.35s;animation-duration:1.17s"/></g>
+      <g transform="rotate(150.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-92" stroke="#e8643c" style="animation-delay:0.11s;animation-duration:1.21s"/></g>
+      <g transform="rotate(165.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-96" stroke="#e8643c" style="animation-delay:0.39s;animation-duration:1.0s"/></g>
+      <g transform="rotate(180.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-92" stroke="#d9a441" style="animation-delay:1.21s;animation-duration:1.09s"/></g>
+      <g transform="rotate(195.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-92" stroke="#e8643c" style="animation-delay:1.38s;animation-duration:1.38s"/></g>
+      <g transform="rotate(210.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-92" stroke="#e8643c" style="animation-delay:1.34s;animation-duration:1.01s"/></g>
+      <g transform="rotate(225.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-84" stroke="#e8643c" style="animation-delay:0.21s;animation-duration:1.36s"/></g>
+      <g transform="rotate(240.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-80" stroke="#e8643c" style="animation-delay:0.68s;animation-duration:1.31s"/></g>
+      <g transform="rotate(255.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-88" stroke="#d9a441" style="animation-delay:0.39s;animation-duration:1.0s"/></g>
+      <g transform="rotate(270.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-96" stroke="#e8643c" style="animation-delay:0.52s;animation-duration:1.3s"/></g>
+      <g transform="rotate(285.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-84" stroke="#e8643c" style="animation-delay:0.97s;animation-duration:1.26s"/></g>
+      <g transform="rotate(300.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-96" stroke="#e8643c" style="animation-delay:0.92s;animation-duration:1.42s"/></g>
+      <g transform="rotate(315.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-92" stroke="#e8643c" style="animation-delay:1.26s;animation-duration:1.45s"/></g>
+      <g transform="rotate(330.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-100" stroke="#d9a441" style="animation-delay:1.12s;animation-duration:1.17s"/></g>
+      <g transform="rotate(345.0)"><line class="ray" x1="0" y1="-66" x2="0" y2="-92" stroke="#e8643c" style="animation-delay:0.55s;animation-duration:1.24s"/></g>
+      <g class="breathe"><circle cx="9" cy="-7" r="52" fill="url(#orb)"/><circle cx="26" cy="-27" r="10" fill="#ffffff" opacity="0.9"/></g>
+    </g>
+    <text class="fade" x="470" y="140" font-family="'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="-2.5" fill="#1c1a17">Glance Studio</text>
+    <text x="472" y="196" font-family="'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="32" font-weight="600" letter-spacing="-0.5" fill="#c4471f"><tspan class="ch" style="animation-delay:0.900s">Y</tspan><tspan class="ch" style="animation-delay:0.945s">o</tspan><tspan class="ch" style="animation-delay:0.990s">u</tspan><tspan class="ch" style="animation-delay:1.035s">&#160;</tspan><tspan class="ch" style="animation-delay:1.080s">d</tspan><tspan class="ch" style="animation-delay:1.125s">i</tspan><tspan class="ch" style="animation-delay:1.170s">r</tspan><tspan class="ch" style="animation-delay:1.215s">e</tspan><tspan class="ch" style="animation-delay:1.260s">c</tspan><tspan class="ch" style="animation-delay:1.305s">t</tspan><tspan class="ch" style="animation-delay:1.350s">.</tspan><tspan class="ch" style="animation-delay:1.395s">&#160;</tspan><tspan class="ch" style="animation-delay:1.440s">T</tspan><tspan class="ch" style="animation-delay:1.485s">h</tspan><tspan class="ch" style="animation-delay:1.530s">e</tspan><tspan class="ch" style="animation-delay:1.575s">&#160;</tspan><tspan class="ch" style="animation-delay:1.620s">a</tspan><tspan class="ch" style="animation-delay:1.665s">g</tspan><tspan class="ch" style="animation-delay:1.710s">e</tspan><tspan class="ch" style="animation-delay:1.755s">n</tspan><tspan class="ch" style="animation-delay:1.800s">t</tspan><tspan class="ch" style="animation-delay:1.845s">s</tspan><tspan class="ch" style="animation-delay:1.890s">&#160;</tspan><tspan class="ch" style="animation-delay:1.935s">b</tspan><tspan class="ch" style="animation-delay:1.980s">u</tspan><tspan class="ch" style="animation-delay:2.025s">i</tspan><tspan class="ch" style="animation-delay:2.070s">l</tspan><tspan class="ch" style="animation-delay:2.115s">d</tspan><tspan class="ch" style="animation-delay:2.160s">.</tspan><tspan class="caret" style="animation-delay:2.21s" fill="#c4471f">▍</tspan></text>
+    <text class="fade" style="animation-delay:2.1s" x="472" y="236" font-family="'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="18" fill="#6b655c">A macOS workspace for Claude Code, built on Ghostty. Free and open source.</text>
+    <g transform="translate(470 262)"><g class="chip" style="animation-delay:2.40s"><rect width="65" height="30" rx="15" fill="#1c1a17" fill-opacity="0.05" stroke="#1c1a17" stroke-opacity="0.10"/><text x="32" y="20" text-anchor="middle" font-family="'SF Mono', ui-monospace, Menlo, Consolas, monospace" font-size="13" fill="#4a453d">Voice</text></g></g>
+    <g transform="translate(545 262)"><g class="chip" style="animation-delay:2.52s"><rect width="91" height="30" rx="15" fill="#1c1a17" fill-opacity="0.05" stroke="#1c1a17" stroke-opacity="0.10"/><text x="45" y="20" text-anchor="middle" font-family="'SF Mono', ui-monospace, Menlo, Consolas, monospace" font-size="13" fill="#4a453d">Diagrams</text></g></g>
+    <g transform="translate(646 262)"><g class="chip" style="animation-delay:2.64s"><rect width="74" height="30" rx="15" fill="#1c1a17" fill-opacity="0.05" stroke="#1c1a17" stroke-opacity="0.10"/><text x="37" y="20" text-anchor="middle" font-family="'SF Mono', ui-monospace, Menlo, Consolas, monospace" font-size="13" fill="#4a453d">Agents</text></g></g>
+    <g transform="translate(729 262)"><g class="chip" style="animation-delay:2.76s"><rect width="117" height="30" rx="15" fill="#1c1a17" fill-opacity="0.05" stroke="#1c1a17" stroke-opacity="0.10"/><text x="58" y="20" text-anchor="middle" font-family="'SF Mono', ui-monospace, Menlo, Consolas, monospace" font-size="13" fill="#4a453d">Automations</text></g></g>
+    <g transform="translate(856 262)"><g class="chip" style="animation-delay:2.88s"><rect width="82" height="30" rx="15" fill="#1c1a17" fill-opacity="0.05" stroke="#1c1a17" stroke-opacity="0.10"/><text x="41" y="20" text-anchor="middle" font-family="'SF Mono', ui-monospace, Menlo, Consolas, monospace" font-size="13" fill="#4a453d">Secrets</text></g></g>
+    <g transform="translate(948 262)"><g class="chip" style="animation-delay:3.00s"><rect width="134" height="30" rx="15" fill="#1c1a17" fill-opacity="0.05" stroke="#1c1a17" stroke-opacity="0.10"/><text x="67" y="20" text-anchor="middle" font-family="'SF Mono', ui-monospace, Menlo, Consolas, monospace" font-size="13" fill="#4a453d">Pull requests</text></g></g>
+  </g>
+</svg>
