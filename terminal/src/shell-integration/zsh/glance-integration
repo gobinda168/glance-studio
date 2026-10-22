@@ -618,8 +618,8 @@ _glance_apply_main() {
     IPREFIX=$ctx[1] PREFIX=$ctx[2] SUFFIX=$ctx[3] ISUFFIX=$ctx[4]
     builtin compadd "${args[@]:--Q}" -Q -- "$_glance_cap_word[i]"
     compstate[list]=
+    # No trailing space: the pick stays as typed, so Tab can go on into a folder and the user adds the space.
     compstate[insert]=1
-    [[ $RBUFFER == ' '* ]] || compstate[insert]+=' '
 }
 
 # The completion for commands with none of their own: options from `--help` for programs installed by Homebrew,
