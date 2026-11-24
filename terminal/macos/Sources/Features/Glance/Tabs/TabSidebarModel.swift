@@ -25,6 +25,10 @@ struct TabRow: Identifiable {
     var kind: Kind = .terminal
     /// The canvas icon on the row's tile.
     var studioIcon: StudioIcons.Name = .terminal
+    /// The linked worktree's folder name when the tab's folder is one (not the repository's main worktree).
+    var worktree: String?
+    /// The worktree mixes work (Worktrees feature).
+    var mixed: Bool = false
 }
 
 /// The tab sidebar's shared state. Every tab window draws its own sidebar view, so switching tabs swaps windows; the
@@ -65,9 +69,16 @@ final class TabSidebarModel: ObservableObject {
         var command: String?
         /// Split panes in the tab: a change redraws the row.
         var panes = 1
+        /// The linked worktree the tab's folder is in (its top folder), while Worktrees is on.
+        var worktree: String?
+        /// That worktree mixes work (the Worktrees side bar's ⚠), set on the main thread.
+        var mixed = false
     }
 
     private(set) var live: [ObjectIdentifier: Live] = [:]   // NEW
+    /// Folders inside a linked worktree → that worktree's top folder as git reports it (nil when git calls it the
+    /// main worktree), so `git` runs once per folder rather than on every poll.
+    private var linkedWorktrees: [String: String?] = [:]
     private var book = TabStatusBook()                       // NEW
     private var pollTimer: Timer?                            // NEW
     private var bellObserver: NSObjectProtocol?              // NEW
@@ -147,7 +158,9 @@ final class TabSidebarModel: ObservableObject {
                 panes: Self.paneCount(of: tab),
                 isSelected: isSelected,
                 kind: Self.kind(for: tab),
-                studioIcon: Self.studioIcon(for: tab))
+                studioIcon: Self.studioIcon(for: tab),
+                worktree: info?.worktree.map { URL(fileURLWithPath: $0).lastPathComponent },
+                mixed: info?.mixed ?? false)
         }
     }
 
@@ -260,30 +273,56 @@ final class TabSidebarModel: ObservableObject {
         let panes: Int
     }
 
-    /// Gathers each tab's folder and foreground process on the main thread, then looks up the git branch and the
-    /// command on a background queue and applies the result only if something changed.
+    /// Gathers each tab's folder and foreground process on the main thread, then looks up the git branch, the
+    /// linked worktree (while Worktrees is on) and the command on a background queue and applies the result only if
+    /// something changed. Whether a worktree mixes work comes from `WorktreesModel`, read back on the main thread.
     private func poll() {
         let probes = NSApp.windows.compactMap { window -> Probe? in
             guard let owner = window.windowController as? GlancePaneOwner else { return nil }
             let pid = (owner as? BaseTerminalController)?.focusedSurface?.surfaceModel?.foregroundPID
             return Probe(id: ObjectIdentifier(window), folder: owner.glanceDirectory, pid: pid, panes: Self.paneCount(of: window))
         }
+        let worktrees = StudioFeatures.shared.isOn(.worktrees)
+        let known = linkedWorktrees
         DispatchQueue.global(qos: .utility).async { [probes] in
             var result: [ObjectIdentifier: Live] = [:]
+            var found: [String: String?] = [:]
             for probe in probes {
                 let branch = probe.folder.flatMap { GitHead.branch(inFolder: $0) }
+                var worktree: String?
+                if worktrees, let folder = probe.folder {
+                    if let cached = known[folder] ?? found[folder] {
+                        worktree = cached
+                    } else if Self.inLinkedWorktree(folder), let location = RepoLocation.find(cwd: folder) {
+                        worktree = location.commonDir == location.worktree + "/.git" ? nil : location.worktree
+                        found[folder] = .some(worktree)
+                    }
+                }
                 let command = probe.pid.flatMap { ProcessArguments.read(pid: $0) }
                     .flatMap { CommandName.chip(executable: $0.executable, arguments: $0.arguments) }
-                result[probe.id] = Live(branch: branch, command: command, panes: probe.panes)
+                result[probe.id] = Live(branch: branch, command: command, panes: probe.panes, worktree: worktree)
             }
-            DispatchQueue.main.async { [result] in
+            DispatchQueue.main.async { [result, found] in
                 MainActor.assumeIsolated { [weak self] in
-                    guard let self, self.live != result else { return }
+                    guard let self else { return }
+                    self.linkedWorktrees.merge(found) { _, new in new }
+                    var result = result
+                    for (id, entry) in result {
+                        guard let path = entry.worktree else { continue }
+                        result[id]?.mixed = WorktreesModel.shared.worktree(path)?.warning ?? false
+                    }
+                    guard self.live != result else { return }
                     self.live = result
                     self.rowsChange.revision &+= 1
                 }
             }
         }
+    }
+
+    /// Whether `folder`'s repository is a linked worktree: its `.git` is a file pointing into the main repository's
+    /// `.git/worktrees/`. A submodule's `.git` file points into `.git/modules/` instead. No git process runs.
+    nonisolated private static func inLinkedWorktree(_ folder: String) -> Bool {
+        TabLocation.repository(ofLinkedWorktree: ProjectRoot.find(from: folder)) != nil
     }
 
     // MARK: Watching
@@ -406,15 +445,36 @@ final class TabSidebarModel: ObservableObject {
         (window.windowController as? GlanceTabController)?.tabKind
     }
 
+    /// The strip item that owns `window`'s tab. A worktree page opened from Command is remembered under Command; the
+    /// plain `SidebarMode.owner` doesn't know it, and with `Feature.commandCenter` off nothing changes.
+    private static func owner(of window: NSWindow) -> SidebarMode? {
+        // A terminal tab showing a finished worktree's recap was opened from Command and belongs there while it does.
+        let recap = (window.windowController as? BaseTerminalController)?.existingGlanceSession?.recap != nil
+        return SidebarMode.owner(ofTabKind: tabKind(of: window), commandCenter: StudioFeatures.shared.isOn(.commandCenter),
+                                 showingRecap: recap)
+    }
+
     /// `window` came to the front of its tab group: remember it for its strip item (Home only in the order), and
     /// show that item's side bar. Only Studio's tab windows count: a palette, sheet or panel turning key doesn't.
     func frontChanged(_ window: NSWindow) {
-        guard window is TerminalWindow, (window.tabGroup?.selectedWindow ?? window) === window else { return }
+        guard Self.isFront(window) else { return }
+        defer { NotificationCenter.default.post(name: Self.cameToFrontNotification, object: window) }
+        guard window is TerminalWindow else { return }
         let kind = Self.tabKind(of: window)
-        let mode = SidebarMode.owner(ofTabKind: kind)
+        let mode = Self.owner(of: window)
         memories[Self.memoryKey(window), default: StripMemory()]
             .recordFront(ObjectIdentifier(window), mode: kind == Self.homeKind ? nil : mode)
         if let mode { SidebarModeModel.shared.follow(mode) }
+    }
+
+    /// Posted (object: the window) when a window comes to the front of its tab group, after its side bar mode is
+    /// followed: its chrome catches up with what changed while it was behind (`followingFront`).
+    static let cameToFrontNotification = Notification.Name("dev.glance.Terminal.tabCameToFront")
+
+    /// Whether `window` is the tab its group shows (a window outside a group always is; nil, not known yet, too).
+    static func isFront(_ window: NSWindow?) -> Bool {
+        guard let window else { return true }
+        return (window.tabGroup?.selectedWindow ?? window) === window
     }
 
     /// `window`'s group's memory (empty when nothing has been in front yet).
@@ -426,10 +486,7 @@ final class TabSidebarModel: ObservableObject {
     /// never one.
     func lastTab(for mode: SidebarMode, near window: NSWindow) -> NSWindow? {
         let tabs = window.tabGroup?.windows ?? [window]
-        let candidates = tabs.filter { tab in
-            let kind = Self.tabKind(of: tab)
-            return kind != Self.homeKind && SidebarMode.owner(ofTabKind: kind) == mode
-        }
+        let candidates = tabs.filter { Self.tabKind(of: $0) != Self.homeKind && Self.owner(of: $0) == mode }
         guard let id = memory(near: window).last(for: mode, candidates: candidates.map(ObjectIdentifier.init))
         else { return nil }
         return candidates.first { ObjectIdentifier($0) == id }

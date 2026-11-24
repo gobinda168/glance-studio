@@ -3,8 +3,8 @@ import Foundation
 import GlanceCore
 import GlanceKit
 
-/// `glance agent-browser …` (spec 2026-10-14-agent-browser-design.md): the Glance browser, the headless Chromium Glance
-/// Studio shows in a floating panel. `mcp` is the `glance-browser` MCP server `glance setup` registers: the official
+/// `glance agent-browser …` (spec 2026-10-14-agent-browser-design.md): the Glance browser, the Chromium window Glance
+/// Studio runs. `mcp` is the `glance-browser` MCP server `glance setup` registers: the official
 /// Playwright MCP, driving that browser through Studio's CDP port.
 enum AgentBrowserCommands {
   static let usage = """
@@ -56,7 +56,7 @@ enum AgentBrowserCommands {
     } == 0
   }
 
-  /// Glance's pinned Playwright, the Playwright MCP and headless Chromium, through the broker's `install`. Progress
+  /// Glance's pinned Playwright, the Playwright MCP and Chromium, through the broker's `install`. Progress
   /// goes to stderr (stdout is the MCP's).
   private static func install(quiet: Bool) -> Bool {
     guard let node = NodeLocator.find(loginPath: ProcessInfo.processInfo.environment["PATH"]) else {
@@ -100,8 +100,16 @@ enum AgentBrowserCommands {
     }
     if !listening(ports.cdp) { say("Glance Studio isn't running, so the Glance browser isn't either; open Studio and try again") }
     setenv("PATH", node.path, 1)
-    let arguments = [node.node, script, "--cdp-endpoint", "http://127.0.0.1:\(ports.cdp)", "--cdp-timeout", "180000",
-                     "--output-dir", (NSTemporaryDirectory() as NSString).appendingPathComponent("glance-browser")]
+    let endpoint = ["--cdp-endpoint", "http://127.0.0.1:\(ports.cdp)", "--cdp-timeout", "180000",
+                    "--output-dir", (NSTemporaryDirectory() as NSString).appendingPathComponent("glance-browser")]
+    var arguments = [node.node, script] + endpoint
+    // With Command Center on, each Claude session gets a window of its own: the wrapper adds that to the same MCP.
+    if AgentBrowserOptions.read(home: home).sessionWindows {
+      setenv("GLANCE_AB", AgentBrowserPackages.folder(home: home), 1)
+      setenv("GLANCE_BROWSER_OPTIONS", AgentBrowserOptions.file(home: home), 1)
+      setenv("GLANCE_CLAUDE_PID", String(ProcessTree.claudeAncestor(of: getpid()) ?? getppid()), 1)
+      arguments = [node.node, Resources.sessionMcpScript.path] + endpoint
+    }
     var argv = arguments.map { strdup($0) } + [nil]
     execv(node.node, &argv)
     say("couldn't start the Playwright MCP: \(String(cString: strerror(errno)))")

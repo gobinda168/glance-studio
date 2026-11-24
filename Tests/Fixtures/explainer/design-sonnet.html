@@ -1,0 +1,53 @@
+<p class="answer">Visual mode is a per-session toggle, off by default. When it's on, each reply becomes a short voiced scene player, with your full text and a facts strip kept on the card. I need your call on per-session versus global.</p>
+
+<section data-beat="pipeline">
+  <h2>Each reply goes through five steps</h2>
+  <p class="say">When Claude finishes, the view sees the turn end. Very short replies are only spoken. Otherwise a headless Claude writes two to five scenes, and Kokoro voices them.</p>
+  <div class="viz">
+    <div class="lanes">
+      <div class="lane"><button class="node in" style="--d:1s" data-detail="The session view sees the turn end in the transcript. Nothing is generated unless the Visual toggle is on."><span class="t">1. Turn ends</span><span class="m">seen in transcript</span></button></div>
+      <div class="lane"><button class="node in" style="--d:4s" data-detail="If the reply is very short, it is only spoken and no scene is made."><span class="t">2. Short reply?</span><span class="m">only spoken</span></button></div>
+      <div class="lane"><button class="node in" style="--d:7s" data-detail="The card shows Preparing visual while the reply text stays readable underneath, so you never wait with nothing on screen."><span class="t">3. Preparing visual</span><span class="m">text stays readable</span></button></div>
+      <div class="lane"><button class="node in" style="--d:10s" data-detail="A headless Claude reads the reply and that turn's tool activity, then writes 2 to 5 scenes, roughly 15 to 45 seconds in total."><span class="t">4. Side Claude</span><span class="m">2 to 5 scenes</span></button></div>
+      <div class="lane"><button class="node in" style="--d:13s" data-detail="Kokoro voices each scene, then the player takes over the card with the text folded."><span class="t">5. Kokoro voice</span><span class="m">player takes over</span></button></div>
+    </div>
+    <p class="hint">Click a box to see what it is.</p>
+  </div>
+</section>
+
+<section data-beat="card">
+  <h2>The card keeps what you can trust</h2>
+  <p class="say">The player shows scenes with captions. Below it, a facts strip comes straight from the transcript. A scene could get something wrong, so trust the strip. Read full reply keeps my text untouched.</p>
+  <div class="viz">
+    <div class="lanes">
+      <div class="lane"><button class="node in" style="--d:1s" data-detail="The scene with captions, play and pause, a scrubber and scene markers."><span class="t">Player</span><span class="m">captions, scrubber, markers</span></button></div>
+      <div class="lane"><button class="node fresh in" style="--d:7s" data-detail="Files changed, commands run and test results, taken directly from the transcript, not written by the side Claude."><span class="t">Facts strip</span><span class="m">from the transcript</span></button></div>
+      <div class="lane"><button class="node in" style="--d:13s" data-detail="Claude's untouched text, for copying code and paths."><span class="t">Read full reply</span><span class="m">untouched text</span></button></div>
+    </div>
+    <p class="hint">Click a box to see what it is.</p>
+  </div>
+</section>
+
+<section data-beat="safety">
+  <h2>Sound and failures stay safe</h2>
+  <p class="say">Sound autoplays only if this tab is in front and you aren't dictating. If anything fails, the card stays as normal text with a small note. Scenes are saved, so replay costs no tokens.</p>
+  <div class="viz">
+    <div class="two">
+      <div class="pane in" style="--d:1s"><b>Autoplay</b><div>Only when this tab is in front and you aren't dictating. Otherwise a play button waits.</div></div>
+      <div class="pane in" style="--d:6s"><b>On failure</b><div>Side Claude or voice fails, or you send a new message mid-generation: plain text with a small note.</div></div>
+    </div>
+    <div class="pane in" style="--d:11s"><b>Replay</b><div>Each scene is saved with its session, so old replies replay without spending tokens.</div></div>
+  </div>
+</section>
+
+<section data-beat="decision">
+  <h2>Per session or global?</h2>
+  <p class="say">Does this match what you pictured? You said always, but I made the toggle per session and off by default. The alternative is one global setting for every session.</p>
+  <div class="viz">
+    <div class="two">
+      <div class="node open check in" style="--d:1s"><span class="t">Per session, off by default</span><span class="m">what I built</span></div>
+      <div class="node in" style="--d:5s"><span class="t">Global setting</span><span class="m">applies to every session</span></div>
+    </div>
+    <p class="hint">The toggle sits in the session header, behind a new unreleased feature flag.</p>
+  </div>
+</section>

@@ -1,7 +1,7 @@
 import Foundation
 
 /// What a folder's repo has changed since its last commit, staged or not, new files included: the top bar's
-/// "▤ 25 · +282 −385".
+/// "▤ 25 uncommitted · +282 −385".
 public enum WorkingChanges {
   public struct Summary: Equatable, Sendable {
     public let files: Int
@@ -16,9 +16,9 @@ public enum WorkingChanges {
 
     public var isClean: Bool { files == 0 }
 
-    /// "25 files changed in glance: 282 lines added, 385 removed", for the tooltip and VoiceOver.
+    /// "25 files uncommitted in glance: 282 lines added, 385 removed", for the tooltip and VoiceOver.
     public func sentence(folder: String) -> String {
-      "\(files) \(files == 1 ? "file" : "files") changed in \(folder): "
+      "\(files) \(files == 1 ? "file" : "files") uncommitted in \(folder): "
         + "\(additions) \(additions == 1 ? "line" : "lines") added, \(deletions) removed"
     }
   }

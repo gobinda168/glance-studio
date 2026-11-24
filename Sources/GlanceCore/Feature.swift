@@ -36,6 +36,17 @@ public enum Feature: String, CaseIterable, Sendable {
   /// GS Code: the VS Code editor kind and its download, beside Razor Code (spec 2026-10-06-vscode-editor-tab-design.md).
   /// Off, every editor tab is Razor Code.
   case gsCode
+  /// Worktrees: every worktree with its Claude sessions and who made each uncommitted change (spec
+  /// 2026-10-22-multi-session-worktrees-design.md).
+  case worktrees
+  /// The Glance view of Claude sessions, proof of work and the session board (spec 2026-11-01-command-center-design.md).
+  case commandCenter
+  /// Explainer mode: a reply as a live page with Kokoro's voice, by hand or for every reply (spec
+  /// 2026-11-03-explainer-mode-design.md). Needs Command Center.
+  case explainerMode
+  /// Browser column: a browser beside a terminal tab's terminal or Hyperviz view, signed in through the Browser's
+  /// store (spec 2026-11-24-browser-column-design.md).
+  case browserColumn
 
   /// Generally available: in every build, and off the Develop menu. Move a feature to `true` when it's ready. All of
   /// them went GA for the release build on 2026-10-10; a new unpolished feature starts at `false`.
@@ -43,7 +54,7 @@ public enum Feature: String, CaseIterable, Sendable {
     switch self {
     case .browser, .agents, .automations, .tools, .journal, .cloud, .notifications, .usage, .meetingNotes, .tickets,
          .orbChannel, .needsYou, .secrets, .tabGroups, .summaries: true
-    case .gsCode: false
+    case .gsCode, .worktrees, .commandCenter, .explainerMode, .browserColumn: false
     }
   }
 
@@ -66,6 +77,10 @@ public enum Feature: String, CaseIterable, Sendable {
     case .tabGroups: "Tab Groups"
     case .summaries: "Summaries"
     case .gsCode: "GS Code"
+    case .worktrees: "Worktrees"
+    case .commandCenter: "Command Center"
+    case .explainerMode: "Explainer Mode"
+    case .browserColumn: "Browser Column"
     }
   }
 

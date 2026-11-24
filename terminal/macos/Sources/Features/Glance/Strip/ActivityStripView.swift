@@ -39,12 +39,15 @@ struct ActivityStripView: View {
     @ObservedObject private var recorder = MeetingRecorder.shared
     /// The strip's window: Settings opens as a tab there.
     @State private var window: NSWindow?
+    /// The mode this strip lights: the shared one while its window is the front tab, held still behind it
+    /// (`followingFront`), so the plate doesn't slide in every hidden tab on a click.
+    @State private var shownMode = SidebarModeModel.shared.mode
     /// The lit icon's plate slides from one icon to the next (`matchedGeometryEffect`).
     @Namespace private var plate
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The lit mode: the selected icon while the side bar is open.
-    private var lit: SidebarMode? { sidebar.isOpen ? modes.mode : nil }
+    private var lit: SidebarMode? { sidebar.isOpen ? shownMode : nil }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -54,11 +57,12 @@ struct ActivityStripView: View {
             ForEach(SidebarMode.stripBottomModes(enabled: features.enabled), id: \.self) { modeButton($0) }
             // Settings: its side bar and the window's Settings tab; a second click hides the side bar.
             StripButton(icon: .settings, label: SidebarMode.settings.title,
-                        isSelected: sidebar.isOpen && modes.mode == .settings, badge: 0, working: false, plate: plate) {
+                        isSelected: lit == .settings, badge: 0, working: false, plate: plate) {
                 modes.choose(.settings, in: window)
             }
         }
         .animation(GlassChrome.move(reduceMotion), value: lit)
+        .followingFront(modes.mode, into: $shownMode, window: window)
         .padding(.vertical, 8)
         .frame(width: Self.width)
         .frame(maxHeight: .infinity)
@@ -79,7 +83,7 @@ struct ActivityStripView: View {
         StripButton(
             icon: mode.icon,
             label: mode.isBuilt ? mode.title : "\(mode.title) (coming soon)",
-            isSelected: sidebar.isOpen && modes.mode == mode,
+            isSelected: lit == mode,
             badge: mode == .pullRequests ? pullRequests.badge : mode == .browser ? browser.stripBadge
                 : mode == .notifications ? notices.book.badge : 0,
             working: mode == .agents && agents.isRunning,

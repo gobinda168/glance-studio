@@ -6,6 +6,10 @@ import SwiftUI
 /// search, the Browser its apps and tabs, Notifications the inbox, Automations and Agents their libraries, Tools its connectors.
 struct StudioSidebarView: View {
     @ObservedObject private var modes = SidebarModeModel.shared
+    /// The side bar this window shows: the shared mode while it's the front tab, held still behind it
+    /// (`followingFront`), so a strip click doesn't rebuild the side bar of every hidden tab.
+    @State private var shown = SidebarModeModel.shared.mode
+    @State private var window: NSWindow?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -13,11 +17,13 @@ struct StudioSidebarView: View {
         // one fades out where it stands; the new one eases in from a few points to the left.
         ZStack(alignment: .top) {
             sidebar
-                .id(modes.mode)
+                .id(shown)
                 .transition(reduceMotion ? .opacity : .asymmetric(
                     insertion: .opacity.combined(with: .offset(x: -8)), removal: .opacity))
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: modes.mode)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: shown)
+        .followingFront(modes.mode, into: $shown, window: window)
+        .background(WindowAccessor { window = $0 })
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(StudioColors.bar)
         .clipped()
@@ -28,13 +34,17 @@ struct StudioSidebarView: View {
 
     @ViewBuilder private var sidebar: some View {
         Group {
-            switch modes.mode {
+            switch shown {
             case .terminal:
                 TabSidebarView(content: .terminals)
+            case .command:
+                CommandSidebarView()
             case .editor:
                 TabSidebarView(content: .editors)
             case .pullRequests:
                 PullRequestsSidebarView()
+            case .worktrees:
+                WorktreesSidebarView()
             case .settings:
                 SettingsSidebarView()
             case .browser:

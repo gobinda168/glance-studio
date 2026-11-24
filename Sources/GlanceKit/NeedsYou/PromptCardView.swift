@@ -18,11 +18,11 @@ struct PromptCardView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       header
-      Text(title)
-        .font(GlanceFont.sans(13, .semibold))
-        .foregroundStyle(GlanceColor.ink)
-        .lineLimit(3)
-        .fixedSize(horizontal: false, vertical: true)
+      CardMessage {
+        Text(title)
+          .font(GlanceFont.sans(13, .semibold))
+          .foregroundStyle(GlanceColor.ink)
+      }
       details
       answers
       if let field = placeholder { textField(field) }

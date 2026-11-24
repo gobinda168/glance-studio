@@ -55,8 +55,15 @@ public enum CommandName {
     return text.count > limit ? String(text.prefix(limit - 1)) + "…" : text
   }
 
+  /// Whether the program is a shell: one of the usual ones, or the login shell.
+  public static func isShell(executable: String, arguments: [String], loginShell: String? = ProcessInfo.processInfo.environment["SHELL"]) -> Bool {
+    let program = name(of: arguments.first ?? executable)
+    if shells.contains(program) { return true }
+    return loginShell.map { name(of: $0) == program } ?? false
+  }
+
   /// A program's name; a login shell's argv[0] carries a leading "-" (`-zsh`).
-  private static func name(of path: String) -> String {
+  static func name(of path: String) -> String {
     let base = (path as NSString).lastPathComponent
     return base.hasPrefix("-") ? String(base.dropFirst()) : base
   }

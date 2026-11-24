@@ -501,6 +501,27 @@ struct CardSurface<S: Shape>: ViewModifier {
   }
 }
 
+/// A card's question or message in full: it grows with the text, then scrolls past `maxHeight`, so a long ask is never
+/// cut off with "…". The words can be selected and copied.
+struct CardMessage<Content: View>: View {
+  var maxHeight: CGFloat = 220
+  @ViewBuilder let content: Content
+  @State private var height: CGFloat = 0
+
+  var body: some View {
+    ScrollView(.vertical) {
+      VStack(alignment: .leading, spacing: 6) { content }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .textSelection(.enabled)
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height = $0 }
+    }
+    .scrollIndicators(height > maxHeight ? .automatic : .never)
+    .scrollDisabled(height <= maxHeight)
+    .frame(height: min(max(height, 1), maxHeight))
+  }
+}
+
 /// A glass pill under the cards: "+N more" (opens the Notifications page) or Clear all.
 struct StackChip: View {
   let title: String

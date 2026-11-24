@@ -12,6 +12,8 @@ case "unsetup":
   exit(SetupCommand.run(install: false))
 case "voice-check":
   exit(VoiceCheckCommand.run(Array(CommandLine.arguments.dropFirst(2))))
+case "explainer-check":
+  exit(ExplainerCheckCommand.run(Array(CommandLine.arguments.dropFirst(2))))
 case "transcribe":
   guard CommandLine.arguments.count > 2 else { print("usage: glance transcribe <audio file>"); exit(2) }
   let path = CommandLine.arguments[2]
@@ -57,7 +59,16 @@ case "helper":
 case "mcp":
   // Claude Code's stdio MCP server for the orb channel (registered by `glance setup`).
   McpCommand.run()
+case "track":
+  // A Claude Code hook: records who changed what (spec 2026-10-22-multi-session-worktrees-design.md).
+  exit(TrackCommands.track(Array(CommandLine.arguments.dropFirst(2))))
+case "changes":
+  exit(TrackCommands.changes(Array(CommandLine.arguments.dropFirst(2))))
+case "track-hooks":
+  exit(TrackCommands.hooks(Array(CommandLine.arguments.dropFirst(2))))
+case "worktree":
+  exit(TrackCommands.worktree(Array(CommandLine.arguments.dropFirst(2))))
 default:
-  print("usage: glance [version | setup | unsetup | mcp | voice-check <provider|kokoro> [text] | transcribe <audio file> | type <text> | watch [folder] | meeting-check <call audio> [mic audio] | kokoro-fetch | suggestions-replay | automation <check|list|approve|trust|enable|save|history|restore|delete|run|serve> … | browser <tabs|console|network|watch|request> … | agent-browser <mcp|install|status|serve>]")
+  print("usage: glance [version | setup | unsetup | mcp | track <Event> | changes [--mine | --session <id>] [--json] [--cwd <path>] | track-hooks install|uninstall|status | worktree new|move --task <name> [--mine] | voice-check <provider|kokoro> [text] | explainer-check <reply.md> [--ask <text>] [--out <folder>] | transcribe <audio file> | type <text> | watch [folder] | meeting-check <call audio> [mic audio] | kokoro-fetch | suggestions-replay | automation <check|list|approve|trust|enable|save|history|restore|delete|run|serve> … | browser <tabs|console|network|watch|request> … | agent-browser <mcp|install|status|serve>]")
   exit(2)
 }

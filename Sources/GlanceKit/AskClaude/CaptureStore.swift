@@ -48,15 +48,17 @@ public final class CaptureStore: ObservableObject {
 
   public func todo(_ id: UUID) -> Captures.Todo? { todos.first { $0.id == id } }
 
-  /// A new to-do at the top of `status`'s column (at its end with `atEnd`: a column's "+ Add"), in `group`.
+  /// A new to-do at the top of `status`'s column (at its end with `atEnd`: a column's "+ Add"), in `group`, with
+  /// `notes` as its detail.
   @discardableResult
   public func addTodo(_ text: String, source: String?, status: Captures.Todo.Status = .todo,
-                      atEnd: Bool = false, group: UUID? = nil) throws -> UUID? {
+                      atEnd: Bool = false, group: UUID? = nil, notes: String = "") throws -> UUID? {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return nil }
     let order = atEnd ? Captures.endOrder(todos, status) : Captures.topOrder(todos, status)
     var todo = Captures.Todo(text: trimmed, status: status, source: source, order: order)
     todo.group = group
+    todo.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
     try save(todos + [todo])
     return todo.id
   }
@@ -160,11 +162,13 @@ public final class CaptureStore: ObservableObject {
   public func note(_ id: UUID) -> NoteDoc? { notes.first { $0.id == id } }
 
   /// Ask Claude's "Add to notes": a new note with the drafted title and text.
-  public func addNote(title: String, text: String, source: String?) throws {
+  @discardableResult
+  public func addNote(title: String, text: String, source: String?) throws -> UUID {
     let note = NoteDoc(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                        body: text.trimmingCharacters(in: .whitespacesAndNewlines), source: source)
     try write(note)
     notes.insert(note, at: 0)
+    return note.id
   }
 
   /// Quick note's Add to: `text` at the end of the note, under a time-and-app line. Written straight away, with any

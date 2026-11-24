@@ -449,3 +449,7 @@ final class BrowserTabController: NSWindowController, NSWindowDelegate, GlanceTa
         DispatchQueue.main.async { [weak window] in MainActor.assumeIsolated { window?.contentView = nil } }
     }
 }
+
+extension BrowserTabController: AddressTarget {
+    var addressTabKey: String? { tabKey }
+}

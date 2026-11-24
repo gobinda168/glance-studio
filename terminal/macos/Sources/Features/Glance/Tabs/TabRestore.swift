@@ -116,6 +116,8 @@ enum TabRestore {
     }
 
     private static func restore(_ snapshot: TabSnapshot) -> Bool {
+        // Tabs whose terminal didn't come back, or that were left as windows of their own, go inside a window here.
+        let snapshot = snapshot.folded { UUID(uuidString: $0).flatMap(terminal(showing:)) != nil }
         let sidebarOpen = TabSidebarModel.shared.isOpen
         let mode = SidebarModeModel.shared.mode
         var fronts: [NSWindow?] = []

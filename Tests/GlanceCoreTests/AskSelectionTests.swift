@@ -55,6 +55,32 @@ private let reply = """
   #expect(!AskSelection.prompt(selection: "x", source: nil, question: " ").contains("What I want"))
 }
 
+@Test func askedToSaveTheReplyNamesWhatToSaveOnce() {
+  let parsed = AskSelection.parse(#"""
+    {"answer": "Added.", "do": ["todo", "ticket", "bogus", "note", "todo"],
+     "todo": {"title": "Reply to Ankit", "group": " Work "}, "note": {"title": "Sumo", "text": "PNG first"}}
+    """#)
+  // A ticket waits for the user: it needs a site and project picked in the panel.
+  #expect(parsed?.actions == [.todo, .note])
+  #expect(parsed?.drafts.first { $0.kind == .todo }?.group == "Work")
+  #expect(AskSelection.parse(#"{"answer": "Hi", "todo": {"title": "x"}}"#)?.actions == [])
+}
+
+@Test func nothingIsSavedUnlessTheUserAskedForIt() {
+  let reply = AskSelection.Reply(answer: "Added.", drafts: [.init(kind: .todo, title: "x")], actions: [.todo])
+  #expect(AskSelection.actions(reply, asked: "add this to my todos") == [.todo])
+  #expect(AskSelection.actions(reply, asked: nil) == [])
+  #expect(AskSelection.actions(reply, asked: "  ") == [])
+}
+
+@Test func aQuestionCanAskToSaveAndNamesTheGroups() {
+  let prompt = AskSelection.prompt(selection: "x", source: nil, question: "add to my work todos",
+                                   groups: ["Work", "Personal"])
+  #expect(prompt.contains("\"do\""))
+  #expect(prompt.contains("Work, Personal"))
+  #expect(!AskSelection.prompt(selection: "x", source: nil, question: nil, groups: ["Work"]).contains("\"do\""))
+}
+
 @Test func aLongSelectionKeepsItsStartAndEnd() {
   let long = String(repeating: "a", count: 15_000) + String(repeating: "b", count: 15_000)
   let sent = AskSelection.trimmed(long)

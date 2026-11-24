@@ -27,13 +27,22 @@ public struct DialogScreen: Equatable, Sendable {
   public let selected: Int
   /// Multi-select: the index (into `options`) of the option the unnumbered "Submit" row directly follows.
   public let submitAfter: Int?
+  /// `detail` reaches the dialog's top rule. False when it was cut at its line limit or the top is off screen: what it
+  /// shows then starts part way through.
+  public let detailIsWhole: Bool
+  /// What kind of dialog this is by its own key hints (Fixtures/prompts/NOTES.md), whichever call `PromptBook` picked for
+  /// it. Nil when they say nothing known: the answers' review screen has none at all.
+  public let kind: PromptKind?
 
-  public init(question: String?, detail: [String], options: [PromptOption], selected: Int, submitAfter: Int? = nil) {
+  public init(question: String?, detail: [String], options: [PromptOption], selected: Int, submitAfter: Int? = nil,
+              detailIsWhole: Bool = false, kind: PromptKind? = nil) {
     self.question = question
     self.detail = detail
     self.options = options
     self.selected = selected
     self.submitAfter = submitAfter
+    self.detailIsWhole = detailIsWhole
+    self.kind = kind
   }
 
   public var labels: [String] { options.map(\.label) }
@@ -114,13 +123,45 @@ public enum PromptScreen {
     let question = above >= 0 && !isRule(lines[above]) ? lines[above].trimmingCharacters(in: .whitespaces) : nil
     var detail: [String] = []
     var cursor = above - 1
+    // A permission's command or diff sits between two `╌` rules: a solid rule met inside them is its text, not the top.
+    var framed = 0
     while cursor >= 0, !isSolidRule(lines[cursor]), detail.count < 12 {
       let trimmed = lines[cursor].trimmingCharacters(in: .whitespaces)
       if !trimmed.isEmpty, !isRule(lines[cursor]) { detail.append(trimmed) }
+      if isRule(lines[cursor]), trimmed.allSatisfy({ $0 == "╌" }) { framed += 1 }
       cursor -= 1
     }
     return DialogScreen(question: question, detail: detail.reversed(), options: options, selected: selected,
-                        submitAfter: submitBelow.flatMap { number in rows.firstIndex { $0.number == number } })
+                        submitAfter: submitBelow.flatMap { number in rows.firstIndex { $0.number == number } },
+                        detailIsWhole: cursor >= 0 && isSolidRule(lines[cursor]) && framed.isMultiple(of: 2),
+                        kind: footer < lines.count ? kind(hints: lines[footer]) : nil)
+  }
+
+  private static func kind(hints: String) -> PromptKind? {
+    if hints.contains("ctrl+g to edit in Vim") { return .plan }
+    if hints.contains("Enter to select") || hints.contains("to navigate") { return .question }
+    if hints.contains("Esc to cancel") { return .permission }
+    return nil
+  }
+
+  /// Claude Code is at its own input line: no dialog, and the last two rules on screen frame a line at its `❯` prompt
+  /// (Fixtures/prompts/idle.txt, working.txt). It catches what `parse` can't, a picker or a screen with no numbered menu,
+  /// by asking for what a reply needs instead of looking for each thing that could be in the way. It proves a frame is on
+  /// screen, not that a live Claude is reading it: `inputBox`'s text does that.
+  public static func atInput(_ text: String) -> Bool { inputBox(text) != nil }
+
+  /// What's on Claude Code's input line, its prompt mark removed (more than one line when wrapped); nil when `atInput` is false.
+  public static func inputBox(_ text: String) -> [String]? {
+    guard parse(text) == nil else { return nil }
+    let lines = text.replacingOccurrences(of: "\u{00A0}", with: " ").components(separatedBy: "\n")
+    let rules = lines.indices.filter { isInputRule(lines[$0]) }
+    guard rules.count >= 2, let bottom = rules.last else { return nil }
+    let top = rules[rules.count - 2]
+    guard top + 1 < bottom else { return nil }
+    let first = lines[top + 1].trimmingCharacters(in: .whitespaces)
+    guard let mark = first.first, markers.contains(mark),
+      !lines[top...].contains(where: { line in footers.contains { line.contains($0) } }) else { return nil }
+    return [String(first.dropFirst())] + lines[(top + 2)..<bottom]
   }
 
   private static func numbered(_ line: String) -> (number: Int, label: String, marked: Bool)? {
@@ -142,6 +183,12 @@ public enum PromptScreen {
   private static func isRule(_ line: String) -> Bool {
     let trimmed = line.trimmingCharacters(in: .whitespaces)
     return trimmed.count >= 10 && trimmed.allSatisfy { "─━╌═-".contains($0) }
+  }
+
+  /// A rule of the input box. Not all of it need be rule: Claude Code can write a label into it.
+  private static func isInputRule(_ line: String) -> Bool {
+    let trimmed = line.trimmingCharacters(in: .whitespaces)
+    return trimmed.count >= 20 && Double(trimmed.filter { $0 == "─" }.count) >= Double(trimmed.count) * 0.8
   }
 
   private static func isSolidRule(_ line: String) -> Bool {

@@ -5,13 +5,14 @@ import GlanceKit
 import SwiftUI
 
 /// Glance Studio's top bar: a compact toolbar across the top of the window with the ☰ that opens the side bar and the ⌂
-/// that opens Home (after the window buttons; editors are on the activity strip), the tab's title in the middle, and the repo's
-/// branch with Create PR, uncommitted changes, Claude's plan usage, the quick note and the Glance button on the right. Tabs live in the sidebar, so the native tab bar never shows (see `TabSidebarModel.applyNativeTabBar`). The `tabs` titlebar style has its own toolbar, so there the ☰
+/// that opens Home (after the window buttons; editors are on the activity strip), the tab's title in the middle, and the tab's
+/// worktree and branch with Create PR, uncommitted changes, Claude's plan usage, the quick note and the Glance button on the right. Tabs live in the sidebar, so the native tab bar never shows (see `TabSidebarModel.applyNativeTabBar`). The `tabs` titlebar style has its own toolbar, so there the ☰
 /// and ⌂ stay a titlebar accessory; the `hidden` style has no titlebar for a bar. The buttons are glass that lights under
 /// the pointer (`ChromeButtonStyle`).
 @MainActor
 enum GlanceTopBar {
     private static var barKey: UInt8 = 0
+    private static var modeKey: UInt8 = 0
 
     static func install(in window: NSWindow, style: Ghostty.Config.MacOSTitlebarStyle) {
         switch style {
@@ -45,6 +46,39 @@ enum GlanceTopBar {
         host.frame = NSRect(x: 0, y: 0, width: 70, height: 28)
         accessory.view = host
         window.addTitlebarAccessoryViewController(accessory)
+
+        // GLANCE: the Terminal | Glance switch, on the right; hidden (so it can't block dragging the window) unless this is
+        // a terminal tab with the feature on.
+        let mode = ModeAccessory(window: window)
+        window.addTitlebarAccessoryViewController(mode.accessory)
+        objc_setAssociatedObject(window, &modeKey, mode, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+
+    /// The tabs style's Terminal | Glance accessory, sized to the switch and hidden when it has nothing to show.
+    @MainActor
+    private final class ModeAccessory {
+        let accessory = NSTitlebarAccessoryViewController()
+        private let host: NonDraggableHostingView<GlanceModeSwitch>
+        private var token: AnyCancellable?
+
+        init(window: NSWindow) {
+            let model = GlanceModeSwitchModel(window: window)
+            host = NonDraggableHostingView(rootView: GlanceModeSwitch(window: window, model: model))
+            accessory.layoutAttribute = .right
+            accessory.view = host
+            // Fires before the change (and for `on`, whose selected label is a little wider): the hosting view needs a
+            // turn to lay out the new content.
+            token = model.objectWillChange.sink { [weak self, weak model] _ in
+                DispatchQueue.main.async { if let model { self?.apply(model.showsAnything) } }
+            }
+        }
+
+        private func apply(_ available: Bool) {
+            accessory.isHidden = !available
+            guard available else { return }
+            host.layoutSubtreeIfNeeded()
+            host.frame = NSRect(x: 0, y: 0, width: host.fittingSize.width + 8, height: 28)
+        }
     }
 
     @MainActor
@@ -80,7 +114,7 @@ enum GlanceTopBar {
 
         func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
             [.glanceSidebar, .glanceHome, .flexibleSpace, .glanceTitle, .flexibleSpace,
-             .glanceSwap, .glanceSwitch, .glanceBranch, .glanceChanges, .glanceUsage, .glanceQuickNote, .glanceToggle]
+             .glanceSwap, .glanceMode, .glanceSwitch, .glanceBranch, .glanceChanges, .glanceUsage, .glanceQuickNote, .glanceToggle]
         }
 
         func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -106,11 +140,14 @@ enum GlanceTopBar {
             case .glanceSwap:
                 item.label = "Switch Editor"
                 item.view = NonDraggableHostingView(rootView: EditorSwapButton(window: window))
+            case .glanceMode:
+                item.label = "Hyperviz View"
+                item.view = NonDraggableHostingView(rootView: GlanceModeSwitch(window: window, model: GlanceModeSwitchModel(window: window)))
             case .glanceSwitch:
                 item.label = "Open in Editor or Terminal"
                 item.view = NonDraggableHostingView(rootView: ProjectSwitchButton(window: window))
             case .glanceBranch:
-                item.label = "Create PR"
+                item.label = "Location"
                 item.view = NSHostingView(rootView: BranchBarItem(model: branchBar))
                 item.visibilityPriority = .low
             case .glanceChanges:
@@ -185,6 +222,7 @@ extension NSToolbarItem.Identifier {
     static let glanceChanges = NSToolbarItem.Identifier("GlanceChanges")
     static let glanceSwap = NSToolbarItem.Identifier("GlanceSwap")
     static let glanceSwitch = NSToolbarItem.Identifier("GlanceSwitch")
+    static let glanceMode = NSToolbarItem.Identifier("GlanceMode")
     static let glanceToggle = NSToolbarItem.Identifier("GlanceToggle")
     static let glanceQuickNote = NSToolbarItem.Identifier("GlanceQuickNote")
 }

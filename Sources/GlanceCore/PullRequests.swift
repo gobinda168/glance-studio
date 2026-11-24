@@ -113,12 +113,12 @@ public enum PullRequests {
     public var summary: String? { total == 0 ? nil : "\(passed)/\(total)" }
   }
 
-  /// The side bar's lists, one `gh pr list` each, and its tabs.
+  /// The side bar's lists, one `gh pr list` each, and its tabs in this order.
   public enum List: String, CaseIterable, Sendable {
-    /// Open, with your review requested.
-    case waitingOnYou
     /// Open and yours, drafts too.
     case yours
+    /// Open, with your review requested.
+    case waitingOnYou
     /// Yours and merged, the newest few.
     case recentlyMerged
   }

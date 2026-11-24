@@ -63,6 +63,18 @@ enum StudioColors {
     static let syntaxType = adaptive(light: 0x7341A8, dark: 0xC9A8F5)
     static let syntaxFunction = adaptive(light: 0x2457A0, dark: 0x8CBBF2)
 
+    /// Media tiles: what sits on a picture (the play disc, the length, the group tag) and the backing behind it. Dark in
+    /// both appearances, as they are over a picture, so the words on them use the `tag*` inks below.
+    static let mediaScrim = fixed(0x161513)
+    static let mediaBack = fixed(0x1B1A18)
+    static let tagOutcome = fixed(0xFF9B7A)
+    static let tagPR = fixed(0xC9A8F5)
+    static let tagTesting = fixed(0x8FD9DC)
+    static let tagBranch = fixed(0xF1EDE4)
+    static let tagTestRun = fixed(0xC5BFB3)
+
+    private static func fixed(_ hex: UInt32) -> Color { Color(nsColor: rgb(hex, 1)) }
+
     private static func adaptive(light: UInt32, dark: UInt32, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? rgb(dark, darkAlpha) : rgb(light, lightAlpha)

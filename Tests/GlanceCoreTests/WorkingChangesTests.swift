@@ -36,7 +36,7 @@ import Testing
 
 @Test func theSummaryReadsAsASentence() {
   #expect(WorkingChanges.Summary(files: 25, additions: 282, deletions: 385).sentence(folder: "glance")
-    == "25 files changed in glance: 282 lines added, 385 removed")
+    == "25 files uncommitted in glance: 282 lines added, 385 removed")
   #expect(WorkingChanges.Summary(files: 1, additions: 1, deletions: 0).sentence(folder: "x")
-    == "1 file changed in x: 1 line added, 0 removed")
+    == "1 file uncommitted in x: 1 line added, 0 removed")
 }

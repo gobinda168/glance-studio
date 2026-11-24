@@ -65,7 +65,7 @@ final class WorkingChangesModel: ObservableObject {
                 MainActor.assumeIsolated { [weak self] in
                     guard let self else { return }
                     self.reading = false
-                    let name = FolderLabel.name(forPath: path)
+                    let name = FolderLabel.name(forPath: ProjectRoot.find(from: path))
                     if self.folder != name { self.folder = name }
                     if self.summary != found { self.summary = found }
                 }
@@ -74,7 +74,7 @@ final class WorkingChangesModel: ObservableObject {
     }
 }
 
-/// "▤ 25 · +282 −385" in a glass capsule beside the plan usage: files changed in the mono ink, the lines added green
+/// "▤ 25 uncommitted · +282 −385" in a glass capsule beside the plan usage: files changed in the mono ink, the lines added green
 /// and removed red with their + and − (MASTER §7.4: colour is never the only cue), rolling to new values. Hidden
 /// outside a repo and when nothing has changed.
 struct WorkingChangesItem: View {
@@ -89,6 +89,9 @@ struct WorkingChangesItem: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(GlassChrome.ink2)
                 number("\(summary.files)", summary.files, GlassChrome.ink)
+                Text("uncommitted")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(GlassChrome.ink2)
                 Circle()
                     .fill(GlassChrome.ink2)
                     .frame(width: 2.5, height: 2.5)

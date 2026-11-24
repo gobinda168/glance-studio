@@ -1,4 +1,3 @@
-import CoreGraphics
 import Foundation
 
 /// Glance browser (spec 2026-10-14-agent-browser-design.md): a headless Chromium that Claude Code and Playwright
@@ -25,6 +24,29 @@ public enum AgentBrowserPackages {
   }
 }
 
+/// What Studio tells `glance agent-browser mcp` about the Glance browser (`<agent-browser>/options.json`): whether each
+/// Claude session gets a window of its own (Command Center), and where Studio listens for what those sessions do.
+public struct AgentBrowserOptions: Codable, Sendable, Equatable {
+  public var sessionWindows: Bool
+  /// Studio's unix socket for the per-session servers; nil until Studio is listening.
+  public var socket: String?
+
+  public init(sessionWindows: Bool = false, socket: String? = nil) {
+    self.sessionWindows = sessionWindows
+    self.socket = socket
+  }
+
+  public static func file(home: String) -> String {
+    (AgentBrowserPackages.folder(home: home) as NSString).appendingPathComponent("options.json")
+  }
+
+  /// A missing, unreadable or malformed file reads as the defaults: the shared browser, no session windows.
+  public static func read(home: String) -> AgentBrowserOptions {
+    (try? Data(contentsOf: URL(fileURLWithPath: file(home: home))))
+      .flatMap { try? JSONDecoder().decode(AgentBrowserOptions.self, from: $0) } ?? AgentBrowserOptions()
+  }
+}
+
 /// A Playwright client says its version in its WebSocket `user-agent` ("Playwright/1.58.2 (arm64; macOS 27.0) …"), and
 /// its browser server must be the same version.
 public enum PlaywrightClientVersion {
@@ -38,13 +60,27 @@ public enum PlaywrightClientVersion {
   }
 }
 
+/// What Claude's browser runs on (Settings → Browser): Chromium in a real window, or Lightpanda, a headless browser
+/// with no window and no screenshots. Playwright tests always run on Chromium.
+public enum AgentBrowserEngine: String, CaseIterable, Sendable {
+  case chromium, lightpanda
+
+  public var title: String {
+    switch self {
+    case .chromium: "Chromium"
+    case .lightpanda: "Lightpanda"
+    }
+  }
+}
+
 /// One JSON line from the broker's stdout.
 public enum AgentBrowserEvent: Equatable, Sendable {
   public enum Kind: String, Sendable { case claude, test }
 
   case ready(clientPort: Int, cdpPort: Int)
   case installing(what: String)
-  case browser(id: String, kind: Kind, version: String, cdpPort: Int)
+  /// `pid`: the browser's process, to bring its window forward (0 from a broker before real windows).
+  case browser(id: String, kind: Kind, version: String, cdpPort: Int, pid: Int32)
   case browserGone(id: String)
   case stopped
   case resumed
@@ -61,7 +97,7 @@ public enum AgentBrowserEvent: Equatable, Sendable {
     case "browser":
       guard let id = json["id"]?.string, let kind = json["kind"]?.string.flatMap(Kind.init(rawValue:)),
             let version = json["version"]?.string, let port = json["cdpPort"]?.int else { return nil }
-      return .browser(id: id, kind: kind, version: version, cdpPort: port)
+      return .browser(id: id, kind: kind, version: version, cdpPort: port, pid: Int32(json["pid"]?.int ?? 0))
     case "browserGone":
       return json["id"]?.string.map { .browserGone(id: $0) }
     case "stopped": return .stopped
@@ -73,31 +109,13 @@ public enum AgentBrowserEvent: Equatable, Sendable {
   }
 }
 
-/// The panel's view ⇄ the page: Claude's pages take the view's size; test pages keep theirs and are letterboxed.
-public enum AgentBrowserFit {
-  static let minSide = 200
-  static let maxSide = 4096
-
-  /// CSS pixels and device scale for `Emulation.setDeviceMetricsOverride`.
-  public static func metrics(view: CGSize, scale: CGFloat) -> (width: Int, height: Int, scale: Double) {
-    func clamp(_ value: CGFloat) -> Int { min(maxSide, max(minSide, Int(value.rounded()))) }
-    return (clamp(view.width), clamp(view.height), scale > 0 ? Double(scale) : 1)
-  }
-
-  /// Where a frame of `frame` size is drawn in `bounds`, keeping its aspect ratio, centred.
-  public static func aspectFit(frame: CGSize, in bounds: CGRect) -> CGRect {
-    guard frame.width > 0, frame.height > 0, bounds.width > 0, bounds.height > 0 else { return .zero }
-    let ratio = min(bounds.width / frame.width, bounds.height / frame.height)
-    let size = CGSize(width: frame.width * ratio, height: frame.height * ratio)
-    return CGRect(x: bounds.minX + (bounds.width - size.width) / 2, y: bounds.minY + (bounds.height - size.height) / 2,
-                  width: size.width, height: size.height)
-  }
-
-  /// A point in the view (top-left origin) → the page's CSS pixels; nil outside the drawn frame.
-  public static func pagePoint(_ point: CGPoint, shown: CGRect, page: CGSize) -> CGPoint? {
-    guard shown.contains(point), shown.width > 0, shown.height > 0 else { return nil }
-    return CGPoint(x: (point.x - shown.minX) / shown.width * page.width,
-                   y: (point.y - shown.minY) / shown.height * page.height)
+/// A page opening brings the Glance browser's window forward: a new tab, or a tab going somewhere new, since Playwright
+/// MCP keeps one tab for all of Claude's pages. A jump within the page isn't a new page.
+public enum AgentBrowserPageOpening {
+  public static func opens(from previous: String?, to url: String) -> Bool {
+    guard let previous else { return true }
+    func page(_ url: String) -> Substring { url.prefix { $0 != "#" } }
+    return page(previous) != page(url)
   }
 }
 

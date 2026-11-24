@@ -1,0 +1,62 @@
+<p class="answer">Two copies of Studio shared one folder and fought over it, so the Glance view never found Claude. Image paste was blocked by a separate bug. Both are fixed in code, but neither has been tried in a running Studio yet.</p>
+
+<section data-beat="stuck">
+  <h2>Two Studios fought over one folder</h2>
+  <p class="say">The main build and an older worktree build shared a bundle id, so they shared one links folder. The second launch wiped it, and then deleted the first one's link.</p>
+  <div class="viz">
+    <div class="lanes">
+      <div class="lane"><button class="node in" style="--d:3s" data-detail="The first Studio was watching the session links folder. The second Studio removed and recreated it at launch, so the first was left watching a deleted folder."><span class="t">Studio A</span><span class="m">watches folder</span></button><span class="wire live" style="--d:5s" aria-hidden="true"></span><button class="node fresh in" style="--d:6s" data-detail="StudioClaudeFolders.prepare() removes and recreates the shared folder at launch."><span class="t">Studio B</span><span class="m">prepare() wipes it</span></button></div>
+      <div class="lane"><button class="node in" style="--d:9s" data-detail="When a session wrote its link, Studio B's linksChanged saw a link for a surface it doesn't own and deleted it about a second later."><span class="t">link written</span><span class="m">removed after ~1s</span></button><span class="wire" style="--d:11s" aria-hidden="true"></span><button class="node in" style="--d:12s" data-detail="Claude itself ran fine. The view just kept waiting for a link that no longer existed."><span class="t">view waits</span><span class="m coral">Starting Claude</span></button></div>
+    </div>
+    <p class="hint">Click a box to see what it is.</p>
+  </div>
+</section>
+
+<section data-beat="fix">
+  <h2>Each launch now gets its own folder</h2>
+  <p class="say">Now each launch uses session-links with its process id. A folder held by a running Studio is left alone, and only folders from Studios that are gone get swept.</p>
+  <div class="viz" data-compare="after">
+    <div class="seg" role="group"><button data-show="before" aria-pressed="false">Before</button><button data-show="after" aria-pressed="true">After</button></div>
+    <div class="before">
+      <div class="two">
+        <div class="node"><span class="t">Studio A</span><span class="m">session-links</span></div>
+        <div class="node"><span class="t">Studio B</span><span class="m">session-links</span></div>
+      </div>
+    </div>
+    <div class="after">
+      <div class="two">
+        <div class="node fresh"><span class="t">Studio A</span><span class="m">session-links-&lt;pid&gt;</span></div>
+        <div class="node fresh"><span class="t">Studio B</span><span class="m">session-links-&lt;pid&gt;</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-beat="paste">
+  <h2>Paste was disabled for images</h2>
+  <p class="say">A plain text view turns Paste off when the clipboard holds only an image, so command V never reached paste. The text view now overrides validateMenuItem, and the intake code moved to GlanceKit.</p>
+  <div class="viz">
+    <div class="flow">
+      <div class="node in" style="--d:2s"><span class="t">⌘V</span><span class="m">image only</span></div>
+      <span class="wire bad" style="--d:5s" aria-hidden="true"></span>
+      <div class="node in" style="--d:6s"><span class="t">NSTextView</span><span class="m bad">Paste disabled</span></div>
+    </div>
+    <div class="flow">
+      <div class="node fresh in" style="--d:11s"><span class="t">ImagePasteTextView</span><span class="m">validateMenuItem</span></div>
+      <span class="wire live" style="--d:13s" aria-hidden="true"></span>
+      <div class="node in" style="--d:14s"><span class="t">paste(_:)</span><span class="m">now reached</span></div>
+    </div>
+  </div>
+</section>
+
+<section data-beat="status">
+  <h2>Built, not yet tried live</h2>
+  <p class="say">The build passes. Five tests fail, all known from before this work, and I added tests for both fixes. You still need to quit both Studios and launch one build with this PR.</p>
+  <div class="viz">
+    <div class="checks">
+      <div class="node check"><svg viewBox="0 0 18 18" width="17" height="17"><path d="M3 10l4 4 8-9" fill="none" stroke="#56c26a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t">scripts/build.sh</span><span class="m">exit 0</span></div>
+      <div class="node check"><svg viewBox="0 0 18 18" width="17" height="17"><path d="M9 3l7 12H2z" fill="none" stroke="#e3b45a" stroke-width="2" stroke-linejoin="round"/></svg><span class="t">Tests</span><span class="m">5 failures, known before</span></div>
+      <div class="node check open"><svg viewBox="0 0 18 18" width="17" height="17"><circle cx="9" cy="9" r="6" fill="none" stroke="#e8643c" stroke-width="2"/></svg><span class="t">Quit both Studios, launch one</span><span class="m">to do</span></div>
+    </div>
+  </div>
+</section>

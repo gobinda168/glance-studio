@@ -1,0 +1,99 @@
+<p class="answer">Two copies of Studio were fighting over one folder, so the Glance view never found Claude. Image paste failed for a separate reason. Both are fixed in the code, but neither fix has been tried in a running Studio yet.</p>
+
+<section data-beat="two-studios">
+  <h2>Two Studios shared one folder</h2>
+  <p class="say">The main build and an older worktree build shared a bundle id, so they shared one folder of session links. The second to launch removed and recreated it, leaving the first watching a deleted folder.</p>
+  <div class="viz">
+    <div class="flow">
+      <div class="node in" style="--d:0.6s"><span class="t">First Studio</span><span class="m">watching</span></div>
+      <span class="gapx fade" style="--d:10s" aria-hidden="true"><svg viewBox="0 0 18 18" width="17" height="17"><path d="M4 4l10 10M14 4L4 14" fill="none" stroke="#ff7b72" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <div class="node fresh in" style="--d:3.6s"><span class="t">Links folder</span><span class="m">same for both</span></div>
+      <span class="wire live back" style="--d:7s" aria-hidden="true"></span>
+      <div class="node in" style="--d:6.5s"><span class="t">Second Studio</span><span class="m coral">prepare()</span></div>
+    </div>
+    <div class="notes">
+      <div class="fade" style="--d:10s"><span class="bad">Folder it watched is gone</span></div>
+      <i class="sp"></i>
+      <div class="fade" style="--d:4s">Same bundle id</div>
+      <i class="sp"></i>
+      <div class="fade" style="--d:7.5s">Removes and recreates it at launch</div>
+    </div>
+  </div>
+</section>
+
+<section data-beat="lost-link">
+  <h2>The link was deleted while the view waited</h2>
+  <p class="say">When a session wrote its link, the second Studio saw a surface it doesn't own and deleted the link about a second later. The view kept waiting for that link, while Claude itself ran fine.</p>
+  <div class="viz">
+    <div class="lanes">
+      <div class="lane in" style="--d:0.5s"><span class="t">Session</span><span class="folder m">writes its link</span></div>
+      <div class="lane in" style="--d:3s"><span class="t">linksChanged</span><span class="folder m">second Studio: surface not mine</span></div>
+      <div class="lane in" style="--d:5s"><span class="t">About 1 second later</span><span class="folder m bad">link deleted</span></div>
+      <div class="lane in" style="--d:7.8s"><span class="t">Glance view</span><span class="folder m">stuck on Starting Claude</span><span class="spin" aria-hidden="true"></span></div>
+      <div class="lane in" style="--d:10s"><span class="t">Claude</span><span class="folder m">running fine</span><span class="dot" aria-hidden="true"></span></div>
+    </div>
+  </div>
+</section>
+
+<section data-beat="own-folder">
+  <h2>Each launch now gets its own folder</h2>
+  <p class="say">The fix gives every launch a folder named with its process id. A folder held by another running Studio is left alone, and only the folders of Studios that are gone get swept.</p>
+  <div class="viz" data-compare="after">
+    <div class="seg" role="group"><button data-show="before" aria-pressed="false">Before</button><button data-show="after" aria-pressed="true">After</button></div>
+    <div class="before">
+      <div class="flow">
+        <div class="node"><span class="t">First Studio</span></div>
+        <span class="wire" aria-hidden="true"></span>
+        <div class="node"><span class="t">Links folder</span><span class="m bad">shared</span></div>
+        <span class="wire back" aria-hidden="true"></span>
+        <div class="node"><span class="t">Second Studio</span></div>
+      </div>
+    </div>
+    <div class="after">
+      <div class="lanes">
+        <div class="lane in" style="--d:0.8s"><span class="t">This Studio</span><span class="folder m ink">session-links-&lt;pid&gt;</span><span class="tick" aria-hidden="true"><svg viewBox="0 0 18 18" width="17" height="17"><path d="M3 10l4 4 8-9" fill="none" stroke="#56c26a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+        <div class="lane in" style="--d:4.5s"><span class="t">Another running Studio</span><span class="folder m">its folder is left alone</span></div>
+        <div class="lane in" style="--d:8.5s"><span class="t">Studio that is gone</span><span class="folder m coral">its folder gets swept</span></div>
+      </div>
+      <button class="node fade" style="--d:10s" data-file="Sources/GlanceKit/StudioClaudeFolders.swift"><span class="t">StudioClaudeFolders.swift</span><span class="m">+28 -6</span></button>
+    </div>
+  </div>
+</section>
+
+<section data-beat="image-paste">
+  <h2>Paste was switched off for images</h2>
+  <p class="say">A plain text view turns Paste off when the clipboard holds only an image, so command V never reached the paste code. The text view now overrides that check, and the intake code moved to GlanceKit so it can be tested.</p>
+  <div class="viz" data-compare="after">
+    <div class="seg" role="group"><button data-show="before" aria-pressed="false">Before</button><button data-show="after" aria-pressed="true">After</button></div>
+    <div class="before">
+      <div class="flow">
+        <div class="node"><span class="t">⌘V</span><span class="m">image on clipboard</span></div>
+        <span class="wire" aria-hidden="true"></span>
+        <div class="node"><span class="t">Paste</span><span class="m bad">disabled</span></div>
+        <span class="gapx" aria-hidden="true"><svg viewBox="0 0 18 18" width="17" height="17"><path d="M4 4l10 10M14 4L4 14" fill="none" stroke="#ff7b72" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <div class="node"><span class="t">paste(_:)</span><span class="m">never reached</span></div>
+      </div>
+    </div>
+    <div class="after">
+      <div class="flow">
+        <div class="node in" style="--d:1s"><span class="t">⌘V</span><span class="m">image on clipboard</span></div>
+        <span class="wire live" style="--d:7.5s" aria-hidden="true"></span>
+        <button class="node fresh in" style="--d:7.2s" data-file="Sources/GlanceKit/ImagePasteTextView.swift"><span class="t">ImagePasteTextView</span><span class="m coral">validateMenuItem</span></button>
+        <span class="wire live" style="--d:9s" aria-hidden="true"></span>
+        <div class="node in" style="--d:9.2s"><span class="t">paste(_:)</span><span class="m">not yet tried live</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-beat="where-it-stands">
+  <h2>Built, but not yet tried in Studio</h2>
+  <p class="say">The build passes. Tests show 5 failures, all known from before this work, and tests were added for both fixes. Still to do: quit both Studios, launch one build with this PR, and try it.</p>
+  <div class="viz">
+    <div class="checks">
+      <div class="node check in" style="--d:0.3s"><svg viewBox="0 0 18 18" width="17" height="17"><path d="M3 10l4 4 8-9" fill="none" stroke="#56c26a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t">Build</span><span class="m">passes</span></div>
+      <div class="node check in" style="--d:1.5s"><svg viewBox="0 0 18 18" width="17" height="17"><path d="M9 3v8M9 14.5v.5" fill="none" stroke="#e3b45a" stroke-width="2" stroke-linecap="round"/></svg><span class="t">Tests</span><span class="m">5 known failures</span></div>
+      <div class="node check open in" style="--d:7.2s"><svg viewBox="0 0 18 18" width="17" height="17"><circle cx="9" cy="9" r="6" fill="none" stroke="#e8643c" stroke-width="2"/></svg><span class="t">Quit both, launch one, try it</span><span class="m coral">still to do</span></div>
+    </div>
+  </div>
+</section>

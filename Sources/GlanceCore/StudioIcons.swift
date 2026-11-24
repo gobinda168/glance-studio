@@ -9,6 +9,8 @@ public enum StudioIcons {
     case chats, terminal, editor, agents, automations, pullRequest, tools, settings, journal, issues, docs, notes, puzzle
     // Pull requests and git.
     case pullRequestDraft, merge, branch, commit
+    // Command: the board's four panels.
+    case board
     // Controls and marks.
     case home, search, plus, refresh, filter, chevronDown, chevronRight, chevronLeft, chevronUp, collapse, check, close
     case clock, alert, bell, checklist, copy, download, pencil, trash, speaker, file, fileNew, play, arrowLeft, reply, spinner, circle
@@ -79,6 +81,8 @@ public enum StudioIcons {
       [.circle(18, 18, 3), .circle(6, 6, 3), .line(6, 9, 6, 21), .path("M18 9v3M18 4v1", dash: [2, 2])]
     case .merge: [.circle(18, 18, 3), .circle(6, 6, 3), .path("M6 21V9a9 9 0 0 0 9 9")]
     case .branch: [.line(6, 3, 6, 15), .circle(18, 6, 3), .circle(6, 18, 3), .path("M18 9a9 9 0 0 1-9 9")]
+    case .board:
+      [.rect(3, 3, 7, 9, rx: 1.5), .rect(14, 3, 7, 5, rx: 1.5), .rect(14, 12, 7, 9, rx: 1.5), .rect(3, 16, 7, 5, rx: 1.5)]
     case .commit: [.circle(12, 12, 3), .path("M3 12h6M15 12h6")]
     case .home:
       [.path("M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"),

@@ -33,36 +33,44 @@ struct TerminalSplitTreeView: View {
 
     // GLANCE: minimized panes, the tabs view and the zoom controls (PaneLayoutModel).
     @StateObject private var panes = PaneLayoutModel()
+    @AppStorage(PaneLayoutModel.tabsOnRightKey) private var tabsOnRight = false
 
     var body: some View {
         let layout = panes.layout(for: tree)
-        VStack(spacing: 0) {
-            if let tabs = layout.tabs {
-                PaneTabBar(panes: panes, tabs: tabs, active: layout.active, close: { action(.close($0)) })
+        // The panes keep their place in the view tree whichever side the tab bar is on, so moving it doesn't rebuild them.
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                if let tabs = layout.tabs, !tabsOnRight {
+                    PaneTabBar(panes: panes, tabs: tabs, active: layout.active, vertical: false, close: { action(.close($0)) })
+                }
+                if let node = layout.node {
+                    TerminalSplitSubtreeView(
+                        node: node,
+                        isRoot: layout.isZoomed ? node == tree.root : layout.isRoot,
+                        panes: panes,
+                        controls: layout.controls && layout.tabs == nil
+                            ? PaneControls(canMinimize: layout.canMinimize, isZoomed: layout.isZoomed) : nil,
+                        action: { operation in
+                            // A split drawn without its minimized panes resizes the real one.
+                            if case .resize(let resize) = operation, let origin = layout.origins[resize.node.structuralIdentity] {
+                                action(.resize(.init(node: origin, ratio: resize.ratio)))
+                            } else {
+                                action(operation)
+                            }
+                        })
+                    // This is necessary because we can't rely on SwiftUI's implicit
+                    // structural identity to detect changes to this view. Due to
+                    // the tree structure of splits it could result in bad behaviors.
+                    // See: https://github.com/ghostty-org/ghostty/issues/7546
+                    .id(node.structuralIdentity)
+                }
+                if !layout.docked.isEmpty {
+                    PaneDock(panes: panes, docked: layout.docked)
+                }
             }
-            if let node = layout.node {
-                TerminalSplitSubtreeView(
-                    node: node,
-                    isRoot: layout.isZoomed ? node == tree.root : layout.isRoot,
-                    panes: panes,
-                    controls: layout.controls && layout.tabs == nil
-                        ? PaneControls(canMinimize: layout.canMinimize, isZoomed: layout.isZoomed) : nil,
-                    action: { operation in
-                        // A split drawn without its minimized panes resizes the real one.
-                        if case .resize(let resize) = operation, let origin = layout.origins[resize.node.structuralIdentity] {
-                            action(.resize(.init(node: origin, ratio: resize.ratio)))
-                        } else {
-                            action(operation)
-                        }
-                    })
-                // This is necessary because we can't rely on SwiftUI's implicit
-                // structural identity to detect changes to this view. Due to
-                // the tree structure of splits it could result in bad behaviors.
-                // See: https://github.com/ghostty-org/ghostty/issues/7546
-                .id(node.structuralIdentity)
-            }
-            if !layout.docked.isEmpty {
-                PaneDock(panes: panes, docked: layout.docked)
+            if let tabs = layout.tabs, tabsOnRight {
+                PaneTabBar(panes: panes, tabs: tabs, active: layout.active, vertical: true, close: { action(.close($0)) })
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
         .onAppear { panes.sync(tree) }

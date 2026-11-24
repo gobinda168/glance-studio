@@ -39,6 +39,13 @@ protocol TerminalViewModel: ObservableObject {
 
     // GLANCE: where it shows (a sidebar or a floating orb), from the window's width; nil until measured.
     var glancePlacement: PaneLayout.Placement? { get set }
+
+    // GLANCE: whether this tab shows the Glance view of its Claude session instead of the terminal (the terminal keeps
+    // running underneath). Spec 2026-11-01-command-center-design.md §2.
+    var glanceMode: Bool { get set }
+
+    // GLANCE: whether this tab shows its browser column (spec 2026-11-24-browser-column-design.md §1).
+    var browserColumnOpen: Bool { get set }
 }
 
 /// The main terminal view. This terminal view supports splits.
@@ -56,6 +63,9 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
 
     // This seems like a crutch after switching from SwiftUI to AppKit lifecycle.
     @FocusState private var focused: Bool
+
+    // GLANCE: the split view's width, measured; the browser column shares it (less the Glance side pane) with the terminal.
+    @State private var splitWidth: CGFloat = 0
 
     // Various state values sent back up from the currently focused terminals.
     @FocusedValue(\.ghosttySurfaceView) private var focusedSurface
@@ -123,7 +133,33 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                 .overlay(alignment: .bottomTrailing) {
                     if viewModel.glancePaneOpen && viewModel.glancePlacement == .floating {
                         GlanceFloatView()
+                            .padding(.trailing, coverWidth) // GLANCE: the orb and its card stay left of an overlaid browser column.
                     }
+                }
+                // GLANCE: the Glance view of this tab's Claude session, over the (still running) terminal.
+                .overlay {
+                    if viewModel.glanceMode, StudioFeatures.shared.isOn(.commandCenter),
+                       let controller = delegate as? BaseTerminalController {
+                        SessionView(model: controller.glanceSessionModel())
+                            // GLANCE: lays out only beside an overlaid browser column, never under it.
+                            .padding(.trailing, coverWidth)
+                            .transition(.opacity.animation(.easeOut(duration: 0.16)))
+                    }
+                }
+                // GLANCE: a tab too narrow for both: the column covers its right side.
+                .overlay(alignment: .trailing) {
+                    if showsColumn, BrowserColumnLayout.overlays(space: Double(columnSpace)),
+                       let controller = delegate as? BaseTerminalController {
+                        BrowserColumnView(model: controller.browserColumn)
+                            .browserColumnWidth(model: controller.browserColumn, space: columnSpace, overlay: true)
+                    }
+                }
+
+                // GLANCE: the browser column beside the terminal or Hyperviz view (spec 2026-11-24-browser-column-design.md).
+                if showsColumn, !BrowserColumnLayout.overlays(space: Double(columnSpace)),
+                   let controller = delegate as? BaseTerminalController {
+                    BrowserColumnView(model: controller.browserColumn)
+                        .browserColumnWidth(model: controller.browserColumn, space: columnSpace, overlay: false)
                 }
 
                 if viewModel.glancePaneOpen && viewModel.glancePlacement == .sidebar {
@@ -131,6 +167,12 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         .glanceSidebar()
                 }
                 }
+                // GLANCE: what the browser column shares with the terminal: the split view without the Glance side pane.
+                .background(GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { splitWidth = proxy.size.width }
+                        .onChange(of: proxy.size.width) { splitWidth = $0 }
+                })
                 } // GLANCE: the side bar's HStack
                 .glancePlacement($viewModel.glancePlacement) // GLANCE
                 .activityStrip() // GLANCE: the icon strip at the window's left edge
@@ -149,6 +191,24 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             }
             .frame(maxWidth: .greatestFiniteMagnitude, maxHeight: .greatestFiniteMagnitude)
         }
+    }
+
+    // GLANCE: the browser column shows on this tab (the flag is checked here too, so switching it off hides it at once).
+    private var showsColumn: Bool { viewModel.browserColumnOpen && StudioFeatures.shared.isOn(.browserColumn) }
+
+    // GLANCE: what the browser column shares with the terminal: the split view's width less the Glance side pane when
+    // it's a sidebar (worked out at each render, so opening or closing the pane counts at once).
+    private var columnSpace: CGFloat {
+        let pane = viewModel.glancePaneOpen && viewModel.glancePlacement == .sidebar ? GlanceLayoutModel.shared.sidebarWidth : 0
+        return max(0, splitWidth - pane)
+    }
+
+    // GLANCE: how much of the tab's right side an overlaid browser column covers (0 side by side or closed), so the
+    // Hyperviz view and the floating orb keep clear of it.
+    private var coverWidth: CGFloat {
+        guard showsColumn, BrowserColumnLayout.overlays(space: Double(columnSpace)),
+              let controller = delegate as? BaseTerminalController else { return 0 }
+        return CGFloat(BrowserColumnLayout.width(saved: controller.browserColumn.savedWidth, space: Double(columnSpace)))
     }
 }
 

@@ -67,17 +67,39 @@ enum OrbChannelStudio {
                                                  cwd: session.projectDir, title: "", body: nil, date: Date()))
     }
 
-    /// Types `text` and Return into a split (a session without a channel). False when the split is gone.
-    static func type(_ text: String, intoSurface surface: String) -> Bool {
+    /// Types `text` and Return into a split (a session without a channel). False when the split is gone, and nothing was
+    /// pasted. Once pasted, `beforeReturn`, when given, is asked just before Return and can hold it back or ask to wait for
+    /// the text to be drawn, and `finished` says whether Return went.
+    static func type(_ text: String, intoSurface surface: String, beforeReturn: (() -> BoardReply.ReturnGate)? = nil,
+                     finished: ((Bool) -> Void)? = nil) -> Bool {
         guard let uuid = UUID(uuidString: surface),
               let view = (NSApp.delegate as? AppDelegate)?.findSurface(forUUID: uuid),
               let model = view.surfaceModel else { return false }
         // A paste, then Return a moment later so Claude Code sees a keypress (as sendToProjectClaude does).
         model.sendText(text)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            model.sendKeyEvent(Ghostty.Input.KeyEvent(key: .enter, action: .press))
-        }
+        pressReturn(model, after: 0.15, retries: returnRetries, gate: beforeReturn, finished: finished)
         return true
+    }
+
+    /// How often a Return waits for its text, 0.1 s apart: about 1.5 s in all, then it's held. Each ask is a fresh read and
+    /// text never drawn never gets a Return, so waiting longer only delays one: a busy Claude on a long transcript draws late.
+    private static let returnRetries = 14
+
+    private static func pressReturn(_ model: Ghostty.Surface, after delay: TimeInterval, retries: Int,
+                                    gate: (() -> BoardReply.ReturnGate)?, finished: ((Bool) -> Void)?) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            MainActor.assumeIsolated {
+                switch gate?() ?? .press {
+                case .press:
+                    model.sendKeyEvent(Ghostty.Input.KeyEvent(key: .enter, action: .press))
+                    finished?(true)
+                case .wait where retries > 0:
+                    pressReturn(model, after: 0.1, retries: retries - 1, gate: gate, finished: finished)
+                case .wait, .hold:
+                    finished?(false)
+                }
+            }
+        }
     }
 
     /// A new tab in `folder` running `claude` (with the channel flag when that switch is on, and `prompt` as its

@@ -7,11 +7,14 @@ public struct BranchChip: View {
   private let branch: String
   private let size: CGFloat
   private let truncation: Text.TruncationMode
+  private let tooltip: String?
 
-  public init(_ branch: String, size: CGFloat = 11, truncation: Text.TruncationMode = .tail) {
+  /// `tooltip` replaces the branch's name when hovering, for a chip inside something with its own.
+  public init(_ branch: String, size: CGFloat = 11, truncation: Text.TruncationMode = .tail, tooltip: String? = nil) {
     self.branch = branch
     self.size = size
     self.truncation = truncation
+    self.tooltip = tooltip
   }
 
   public var body: some View {
@@ -32,6 +35,6 @@ public struct BranchChip: View {
     .overlay(shape.strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("branch \(branch)")
-    .help(branch)
+    .help(tooltip ?? branch)
   }
 }

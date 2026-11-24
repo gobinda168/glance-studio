@@ -30,6 +30,8 @@ final class AskClaudeModel: ObservableObject {
   @Published var ticketTitle = ""
   @Published var ticketDescription = ""
   @Published var todoText = ""
+  /// The group the user asked the to-do to go in, by name ("add to my work to-dos").
+  @Published private(set) var todoGroup: String?
   @Published var noteTitle = ""
   @Published var noteText = ""
 
@@ -120,7 +122,8 @@ final class AskClaudeModel: ObservableObject {
     let mine = generation
     phase = .thinking
     answer = ""
-    let prompt = AskSelection.prompt(selection: selection, source: source, question: question)
+    let prompt = AskSelection.prompt(selection: selection, source: source, question: question,
+                                     groups: CaptureStore.shared.groups.map(\.name))
     run = ClaudeOneShot.run(arguments: AskSelection.arguments(), prompt: prompt, folder: nil,
                             timeout: AskSelection.timeout) { [weak self] result in
       guard let self, self.generation == mine else { return }
@@ -134,26 +137,30 @@ final class AskClaudeModel: ObservableObject {
           self.fillDefaults()
           return
         }
-        self.apply(reply)
+        self.apply(reply, asked: question)
       case .failure(let failure):
         self.phase = .failed(failure.message)
       }
     }
   }
 
-  private func apply(_ reply: AskSelection.Reply) {
+  /// Claude's drafts go in the fields; what the user's question asked to save ("add this to my to-dos") is saved
+  /// straight away, and its tab shows that it was.
+  private func apply(_ reply: AskSelection.Reply, asked: String?) {
     fillDefaults()
     answer = reply.answer
     recommended = reply.drafts.first?.kind
     for draft in reply.drafts {
       switch draft.kind {
       case .ticket: ticketTitle = draft.title; ticketDescription = draft.detail
-      case .todo: todoText = draft.title
+      case .todo: todoText = draft.title; todoGroup = draft.group
       case .note: noteTitle = draft.title; noteText = draft.detail
       }
     }
-    if let first = reply.drafts.first { kind = first.kind }
+    let actions = AskSelection.actions(reply, asked: asked)
+    if let first = actions.first ?? reply.drafts.first?.kind { kind = first }
     phase = .ready
+    for action in actions { save(action) }
   }
 
   /// Drafts Claude didn't write start from the selection itself.
@@ -165,6 +172,7 @@ final class AskClaudeModel: ObservableObject {
     todoText = title
     noteTitle = title
     noteText = selection.trimmed
+    todoGroup = nil
     recommended = nil
     outcomes = [:]
   }
@@ -175,9 +183,13 @@ final class AskClaudeModel: ObservableObject {
     guard !saving.contains(kind) else { return }
     switch kind {
     case .todo:
+      let store = CaptureStore.shared
+      // A group name Claude got wrong still saves the to-do, just in no group.
+      let group = (try? CaptureTools.group(named: todoGroup, in: store.groups).get()) ?? nil
       do {
-        try CaptureStore.shared.addTodo(todoText, source: source)
-        outcomes[.todo] = .saved("Added to your to-dos.", url: nil)
+        try store.addTodo(todoText, source: source, group: group)
+        let place = store.group(group).map { " under \($0.name)" } ?? ""
+        outcomes[.todo] = .saved("Added to your to-dos\(place).", url: nil)
       } catch {
         outcomes[.todo] = .failed("Couldn't save the to-do: \(error.localizedDescription)")
       }

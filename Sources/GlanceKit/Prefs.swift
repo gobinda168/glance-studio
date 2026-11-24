@@ -153,9 +153,10 @@ public enum Prefs {
     set { defaults.set(newValue, forKey: "pullRequestsRepository") }
   }
 
-  /// The Pull requests side bar's tab (To review, Yours or Merged), for every window and across launches.
+  /// The Pull requests side bar's tab (Yours, To review or Merged), for every window and across launches; Yours until
+  /// one is picked.
   public static var pullRequestsTab: PullRequests.List {
-    get { defaults.string(forKey: "pullRequestsTab").flatMap(PullRequests.List.init(rawValue:)) ?? .waitingOnYou }
+    get { defaults.string(forKey: "pullRequestsTab").flatMap(PullRequests.List.init(rawValue:)) ?? .yours }
     set { defaults.set(newValue.rawValue, forKey: "pullRequestsTab") }
   }
 

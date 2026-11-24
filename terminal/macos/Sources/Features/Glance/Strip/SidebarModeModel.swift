@@ -29,17 +29,19 @@ final class SidebarModeModel: ObservableObject {
         let sidebar = TabSidebarModel.shared
         // Automations, Agents and Mods go to their full-width library, which has no side bar to hide: the side bar's
         // open state is left as it is for the other tabs (spec 2026-10-14-fullwidth-libraries-design.md).
+        // The tab first, then the mode: the tab being left is behind by then and keeps its strip and side bar as they
+        // were (`followingFront`) instead of animating a change nobody sees.
         if mode.opensLibrary {
-            follow(mode)
             if let window { StripSwitch.go(to: mode, in: window) }
+            follow(mode)
             return
         }
         if sidebar.isOpen && mode == self.mode {
             sidebar.isOpen = false
             return
         }
-        show(mode)
         if let window { StripSwitch.go(to: mode, in: window) }
+        show(mode)
     }
 
     /// Shows `mode`'s side bar, opening the side bar if it's closed.

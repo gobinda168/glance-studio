@@ -85,15 +85,26 @@ struct TerminalCommandPaletteView: View {
 
     /// GLANCE: Studio's own commands.
     private var glanceOptions: [CommandOption] {
-        guard StudioFeatures.shared.isOn(.browser) else { return [] }
-        let shown = AgentBrowserPanel.shared.isShown
-        return [CommandOption(
-            title: shown ? "Hide Glance Browser" : "Show Glance Browser",
-            description: "The browser Claude Code and Playwright tests use, live in a floating window",
-            leadingIcon: "safari"
-        ) {
-            AgentBrowserPanel.shared.toggle()
-        }]
+        var options: [CommandOption] = []
+        if StudioFeatures.shared.isOn(.browser) {
+            options.append(CommandOption(
+                title: "Show Glance Browser",
+                description: "The Chromium window Claude Code and Playwright tests use",
+                leadingIcon: "safari"
+            ) {
+                AgentBrowserWindow.show()
+            })
+        }
+        if BrowserColumn.isAvailable(NSApp.keyWindow) {
+            options.append(CommandOption(
+                title: "Toggle Browser Column",
+                description: "A browser beside this tab's terminal or Hyperviz view (⌥⌘O)",
+                leadingIcon: "globe"
+            ) {
+                BrowserColumn.toggle(NSApp.keyWindow)
+            })
+        }
+        return options
     }
 
     /// Commands for installing or canceling available updates.

@@ -39,5 +39,10 @@ let package = Package(
       swiftSettings: [.swiftLanguageMode(.v5)]
     ),
     .testTarget(name: "GlanceCoreTests", dependencies: ["GlanceCore"]),
+    .testTarget(
+      name: "GlanceKitTests",
+      dependencies: ["GlanceKit"],
+      swiftSettings: [.swiftLanguageMode(.v5)]
+    ),
   ]
 )

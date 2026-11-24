@@ -273,6 +273,7 @@ class AppDelegate: NSObject,
 
         // GLANCE: a new Mac gets Claude Code's hooks, plan usage and MCP server without running `glance setup`.
         ClaudeAutoSetup.run()
+        WorktreeTracking.sync() // GLANCE: tracking hooks follow the Worktrees feature
 
         // GLANCE: the Browser's Slack workspaces and Atlassian sites start at launch, so mentions and sign-ins are
         // there with no tab open (spec 2026-10-10-browser-design.md), when this build has the Browser.

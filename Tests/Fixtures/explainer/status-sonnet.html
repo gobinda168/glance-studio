@@ -1,0 +1,46 @@
+<p class="answer">The demo is built and open in your Glance browser, but I can't hear audio, so you need to judge the voice yourself. The scenes are hand-written samples, and how long real generation takes is still unmeasured.</p>
+
+<section data-beat="status">
+  <h2>What's real and what's a stand-in</h2>
+  <p class="say">The voice, the PR facts and the scene format are real. The scenes are ones I wrote by hand, and the Preparing wait is just a timer.</p>
+  <div class="viz">
+    <div class="two">
+      <div class="lanes">
+        <div class="lane in" style="--d:1.5s"><div class="node"><span class="t">Kokoro voice</span><span class="m">your saved Heart voice</span></div><span class="tick"><svg viewBox="0 0 18 18" width="17" height="17"><path d="M3 10l4 4 8-9" fill="none" stroke="#56c26a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+        <div class="lane in" style="--d:3s"><div class="node"><span class="t">PR facts</span><span class="m">real</span></div><span class="tick"><svg viewBox="0 0 18 18" width="17" height="17"><path d="M3 10l4 4 8-9" fill="none" stroke="#56c26a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+        <div class="lane in" style="--d:4.5s"><div class="node"><span class="t">Scene format</span><span class="m">same as explainer</span></div><span class="tick"><svg viewBox="0 0 18 18" width="17" height="17"><path d="M3 10l4 4 8-9" fill="none" stroke="#56c26a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+      </div>
+      <div class="lanes">
+        <div class="lane in" style="--d:6s"><div class="node fresh"><span class="t">Scenes</span><span class="m coral">hand-written sample</span></div></div>
+        <div class="lane in" style="--d:7.5s"><div class="node fresh"><span class="t">Preparing</span><span class="m coral">2.4 s timer</span></div></div>
+        <div class="lane in" style="--d:9s"><div class="node fresh"><span class="t">Composer voice</span><span class="m coral">not in demo</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-beat="learned">
+  <h2>The wait will come from Claude, not the voice</h2>
+  <p class="say">Kokoro took under a second per scene. First load was about 6.6 seconds, then under 0.1. So the delay will be Claude writing the scenes, and I haven't measured that.</p>
+  <div class="viz">
+    <div class="lanes">
+      <div class="lane in" style="--d:1s"><div class="node"><span class="t">Kokoro, first load</span><span class="m">about 6.6 s</span></div></div>
+      <div class="lane in" style="--d:4s"><div class="node"><span class="t">Kokoro, after that</span><span class="m">under 0.1 s</span></div></div>
+      <div class="lane in" style="--d:7s"><div class="node fresh"><span class="t">Claude writing scenes</span><span class="m coral">not measured yet</span></div></div>
+    </div>
+    <p class="hint">Your product notes say the Glance pane already narrates, draws and has an orb. I'll cover how Visual relates to that in the spec.</p>
+  </div>
+</section>
+
+<section data-beat="ask">
+  <h2>Two things I need from you</h2>
+  <p class="say">Does this explain the bug better than text? If not, is it the scenes, the voice or the pacing? And should Visual be a global setting or per session?</p>
+  <div class="viz">
+    <div class="checks">
+      <div class="node check open in" style="--d:1s"><span class="t">Easier than the text? If not: scenes, voice or pacing?</span></div>
+      <div class="node check open in" style="--d:6s"><span class="t">Global setting, or per session and off by default?</span></div>
+    </div>
+    <p class="hint">I'd pick a global setting with a per-session override. The catch is extra tokens on every reply in every session.</p>
+    <p class="hint">Nothing is committed. Files are in ~/Code/glance-worktrees/visual-answers on feat/visual-answers.</p>
+  </div>
+</section>

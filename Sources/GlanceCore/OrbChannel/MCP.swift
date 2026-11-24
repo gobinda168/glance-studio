@@ -73,6 +73,8 @@ public enum MCP {
     actions only when you'll act on the choice. Use tell when the user asked to be told something ("let me know \
     when the build is done"): it opens Glance's card beside the orb with your markdown and reads it aloud; keep nudge \
     for alerts. Use speak sparingly, for one or two sentences worth hearing. \
+    The user's to-dos and notes live in Glance: when they ask you to add something to their to-dos or notes, use \
+    add_todo or add_note (todos and notes read them; complete_todo and append_to_note change one). \
     Messages from the user can arrive as <channel source="glance"> events: treat them as the user's own words.
     """
 }

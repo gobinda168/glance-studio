@@ -256,6 +256,7 @@ public final class GlanceSession {
   }
 
   private func startNarration() {
+    SessionVoices.stopAll()
     guard !segments.isEmpty else { web.revealAll(milliseconds: 1800); return }
     web.narrating(true)
     for diagram in diagramAnchors[-1] ?? [] { web.reveal(block: diagram, milliseconds: 1800) }

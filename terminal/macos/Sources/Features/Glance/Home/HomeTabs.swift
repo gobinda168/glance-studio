@@ -40,17 +40,9 @@ enum HomeTabs {
     /// end of the group (terminal tabs keep their ⌘1–⌘9).
     @discardableResult
     static func show(in window: NSWindow?) -> HomeWindowController? {
-        let parent = tabWindow(window)
+        let parent = GlanceTabHost.tabWindow(window)
         return GlanceTabHost.open(kind: kind, key: kind, from: parent?.tabGroup?.windows.last ?? parent) {
             HomeWindowController()
-        }
-    }
-
-    /// A window whose tab group Home may join: a terminal or another Glance tab (`window`, else the main window, else
-    /// the terminal used last). Never the quick terminal or a panel like Settings.
-    private static func tabWindow(_ window: NSWindow?) -> NSWindow? {
-        [window, NSApp.mainWindow, TerminalController.preferredParent?.window].compactMap { $0 }.first {
-            $0.windowController is TerminalController || $0.windowController is GlanceTabController
         }
     }
 

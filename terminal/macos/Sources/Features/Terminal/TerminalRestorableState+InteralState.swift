@@ -1,4 +1,5 @@
 import AppKit
+import GlanceCore // GLANCE: BrowserColumnSaved
 
 extension TerminalRestorableState {
     /// Internal State we use to perform unit tests
@@ -23,6 +24,11 @@ extension TerminalRestorableState {
         // GLANCE: the split panes' tab names and order, minimized panes and tabs view (PaneLayoutModel). Optional with
         // a default for the same reason as the group.
         var glancePanes: PaneLayoutModel.Saved? = nil
+
+        // GLANCE: the tab showed the Glance view (command center). Optional with a default, version stays 7.
+        var glanceMode: Bool? = nil
+        // GLANCE: the browser column (open, width, tabs). Optional with a default, version stays 7.
+        var glanceBrowserColumn: BrowserColumnSaved? = nil
     }
 }
 
@@ -37,6 +43,11 @@ extension TerminalRestorableState.InternalState where ViewType == Ghostty.Surfac
             // GLANCE: encoding runs on the main thread; TabGroups is main-actor.
             glanceGroup: MainActor.assumeIsolated { controller.window.flatMap { TabGroups.shared.group(of: $0) } },
             glancePanes: MainActor.assumeIsolated { PaneLayoutModel.saved(panes: controller.surfaceTree.map(\.id)) },
+            glanceMode: MainActor.assumeIsolated { controller.glanceMode ? true : nil },
+            // GLANCE: the browser column, only with the feature on.
+            glanceBrowserColumn: MainActor.assumeIsolated {
+                StudioFeatures.shared.isOn(.browserColumn) ? controller.existingBrowserColumn?.saved(open: controller.browserColumnOpen) : nil
+            },
         )
     }
 }

@@ -48,8 +48,8 @@ enum BrowserData {
         set { defaults.set(newValue, forKey: "browserMasksLogSecrets") }
     }
 
-    /// Glance browser's panel opens by itself when Claude or a test opens a page (Settings → Browser); on until
-    /// switched off.
+    /// Glance browser's window comes forward (without focus) when Claude or a test opens a page (Settings → Browser); on
+    /// until switched off.
     static var showsAgentBrowser: Bool {
         get { defaults.object(forKey: "agentBrowserAutoShow") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "agentBrowserAutoShow") }
@@ -62,7 +62,13 @@ enum BrowserData {
         set { defaults.set(newValue, forKey: "agentBrowserTests") }
     }
 
-    /// Glance browser quits after 5 minutes with no client, no page and the panel hidden; on until switched off.
+    /// What Claude's browser runs on; Chromium until changed.
+    static var agentBrowserEngine: AgentBrowserEngine {
+        get { defaults.string(forKey: "agentBrowserEngine").flatMap(AgentBrowserEngine.init(rawValue:)) ?? .chromium }
+        set { defaults.set(newValue.rawValue, forKey: "agentBrowserEngine") }
+    }
+
+    /// Glance browser quits after 5 minutes with no client and no page open; on until switched off.
     static var agentBrowserQuitsWhenIdle: Bool {
         get { defaults.object(forKey: "agentBrowserIdleQuit") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "agentBrowserIdleQuit") }

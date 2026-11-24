@@ -5,12 +5,17 @@ import Foundation
 /// 2026-10-07-pr-manager-design.md).
 public enum SidebarMode: String, CaseIterable, Sendable {
   case terminal
+  /// Command: the board of every Claude session (spec 2026-11-01-command-center-design.md §5).
+  case command
   case editor
   /// Browser: saved apps and tabs (spec 2026-10-10-browser-design.md); Chats, Issues and Docs before it.
   case browser
   case agents
   case automations
   case pullRequests
+  /// Worktrees: every worktree with its Claude sessions and who made each uncommitted change (spec
+  /// 2026-10-22-multi-session-worktrees-design.md).
+  case worktrees
   /// To-dos & Notes: what Ask Claude saved from selected text (spec 2026-10-13-ask-claude-selection-design.md).
   case captures
   /// Tickets: the user's tickets in Claude's daily order (spec 2026-10-09-tickets-design.md).
@@ -45,7 +50,10 @@ public enum SidebarMode: String, CaseIterable, Sendable {
   /// The saved choice, or Terminal (the tab list Glance Studio showed before the strip) when there's none or its
   /// feature is off.
   public init(saved: String?, enabled: Set<Feature>) {
-    let name = saved.map { Self.replaced[$0] ?? $0 }
+    var name = saved.map { Self.replaced[$0] ?? $0 }
+    // Worktrees and Command are one strip item: a saved choice follows the flag.
+    if name == "worktrees", enabled.contains(.commandCenter) { name = "command" }
+    if name == "command", !enabled.contains(.commandCenter) { name = "worktrees" }
     self = name.flatMap(SidebarMode.init(rawValue:)).flatMap { $0.isShown(enabled: enabled) ? $0 : nil } ?? .terminal
   }
 
@@ -64,10 +72,12 @@ public enum SidebarMode: String, CaseIterable, Sendable {
     case .notifications: "Notifications"
     case .browser: "Browser"
     case .terminal: "Terminal"
+    case .command: "Command"
     case .editor: "Editor"
     case .agents: "Agents"
     case .automations: "Automations"
     case .pullRequests: "Pull requests"
+    case .worktrees: "Worktrees"
     case .captures: "To-dos & Notes"
     case .tickets: "Tickets"
     case .journal: "Journal"
@@ -85,10 +95,12 @@ public enum SidebarMode: String, CaseIterable, Sendable {
     case .notifications: .bell
     case .browser: .globe
     case .terminal: .terminal
+    case .command: .board
     case .editor: .editor
     case .agents: .agents
     case .automations: .automations
     case .pullRequests: .pullRequest
+    case .worktrees: .branch
     case .captures: .notes
     case .tickets: .checklist
     case .journal: .journal
@@ -103,8 +115,8 @@ public enum SidebarMode: String, CaseIterable, Sendable {
   /// Whether the side bar exists yet. The others show a placeholder until they're built.
   public var isBuilt: Bool {
     switch self {
-    case .notifications, .browser, .terminal, .editor, .agents, .automations, .pullRequests, .captures, .tickets, .journal,
-         .meetings, .usage, .tools, .mods, .settings: true
+    case .notifications, .browser, .terminal, .command, .editor, .agents, .automations, .pullRequests, .worktrees,
+         .captures, .tickets, .journal, .meetings, .usage, .tools, .mods, .settings: true
     }
   }
 
@@ -120,6 +132,8 @@ public enum SidebarMode: String, CaseIterable, Sendable {
     case .meetings: .meetingNotes
     case .usage: .usage
     case .tickets: .tickets
+    case .worktrees: .worktrees
+    case .command: .commandCenter
     case .terminal, .editor, .pullRequests, .captures, .mods, .settings: nil
     }
   }
@@ -128,6 +142,8 @@ public enum SidebarMode: String, CaseIterable, Sendable {
   /// they show only while Automations is on too.
   public func isShown(enabled: Set<Feature>) -> Bool {
     if self == .agents { return enabled.contains(.agents) && enabled.contains(.automations) }
+    // Command takes over the Worktrees item while its flag is on.
+    if self == .worktrees { return enabled.contains(.worktrees) && !enabled.contains(.commandCenter) }
     return feature.map(enabled.contains) ?? true
   }
 }

@@ -21,6 +21,21 @@ private typealias S = SyntaxHighlight.Segment
     #expect(SyntaxHighlight.Language(path: ".gitignore") == nil)
   }
 
+  @Test func languageByFenceName() {
+    #expect(SyntaxHighlight.Language(fence: "typescript") == .javascript)
+    #expect(SyntaxHighlight.Language(fence: " TSX ") == .javascript)
+    #expect(SyntaxHighlight.Language(fence: "python") == .python)
+    #expect(SyntaxHighlight.Language(fence: "rust") == .rust)
+    #expect(SyntaxHighlight.Language(fence: "console") == .shell)
+    #expect(SyntaxHighlight.Language(fence: "golang") == .go)
+    #expect(SyntaxHighlight.Language(fence: "jsonc") == .json)
+    #expect(SyntaxHighlight.Language(fence: "c++") == .cLike)
+    #expect(SyntaxHighlight.Language(fence: "yml") == .yaml)
+    #expect(SyntaxHighlight.Language(fence: "rs") == .rust)
+    #expect(SyntaxHighlight.Language(fence: "text") == nil)
+    #expect(SyntaxHighlight.Language(fence: "") == nil)
+  }
+
   @Test func python() {
     let segments = SyntaxHighlight.segments(
       #"    if share and q_args.get("share_with_partner") is True:  # yes"#, language: .python)

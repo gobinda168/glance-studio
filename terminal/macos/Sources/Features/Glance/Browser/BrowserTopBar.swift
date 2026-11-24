@@ -73,8 +73,8 @@ struct TopBarButton: View {
 }
 
 /// The address field: the host and a lock at rest, the whole address while editing; Return goes, Esc puts it back.
-struct AddressBar: View {
-    @ObservedObject var controller: BrowserTabController
+struct AddressBar<Target: AddressTarget>: View {
+    @ObservedObject var controller: Target
     @ObservedObject var state: WebViewState
     @State private var text = ""
     @State private var editing = false
@@ -133,7 +133,7 @@ struct AddressBar: View {
 
     /// The user typed: suggestions for the new text, none highlighted.
     private func refresh() {
-        let others = BrowserTabController.all.filter { $0 !== controller }.compactMap { tab in
+        let others = BrowserTabController.all.filter { $0.tabKey != controller.addressTabKey }.compactMap { tab in
             tab.state.url.map { AddressSuggestions.OpenTab(id: tab.tabKey, title: tab.displayTitle, url: $0) }
         }
         let history = (try? BrowserData.history?.matches(text, limit: 6)) ?? []

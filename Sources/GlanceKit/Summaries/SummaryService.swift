@@ -43,7 +43,7 @@ public final class SummaryService {
     Self.inspect(link) { [weak self] freshness in
       guard let self else { return }
       switch SummaryPolicy.step(mode: Prefs.summaryMode, trigger: trigger, freshness: freshness) {
-      case .none, .show: self.onChange?(link.sessionID)
+      case .none, .show: self.changed(link.sessionID)
       case .generate(let incremental): self.generate(link, incremental: incremental)
       }
     }
@@ -63,6 +63,12 @@ public final class SummaryService {
     DispatchQueue.main.asyncAfter(deadline: .now() + Self.quietDelay, execute: work)
   }
 
+  /// Tells the owner of `onChange`, and anyone else listening (a worktree recap waiting for its summaries).
+  private func changed(_ id: String) {
+    onChange?(id)
+    NotificationCenter.default.post(name: .summaryChanged, object: nil, userInfo: ["session": id])
+  }
+
   private func cancelTimers() {
     timers.values.forEach { $0.cancel() }
     timers.removeAll()
@@ -72,7 +78,7 @@ public final class SummaryService {
     pending[link.sessionID] = link
     guard jobs.start(link.sessionID) else { return }
     failures[link.sessionID] = nil
-    onChange?(link.sessionID)
+    changed(link.sessionID)
     let previous = incremental ? SummaryStore.load(link.sessionID) : nil
     let offset = previous?.coveredBytes ?? 0
     DispatchQueue.global(qos: .utility).async {
@@ -144,7 +150,7 @@ public final class SummaryService {
     }
     runs[id] = nil
     let again = jobs.finish(id)
-    onChange?(id)
+    changed(id)
     if again, let next = pending[id] { request(next, trigger: .userAsked) }
   }
 
@@ -172,4 +178,9 @@ public final class SummaryService {
     if let length { return ((try? handle.read(upToCount: length)) ?? nil) ?? Data() }
     return ((try? handle.readToEnd()) ?? nil) ?? Data()
   }
+}
+
+extension Notification.Name {
+  /// A session's summary started, finished or failed (userInfo `session`).
+  public static let summaryChanged = Notification.Name("dev.glance.summaries.changed")
 }

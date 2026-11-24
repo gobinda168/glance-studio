@@ -1628,6 +1628,14 @@ extension Ghostty {
                                     action: #selector(copyLink(_:)), keyEquivalent: "")
                 item.representedObject = path ?? link
                 item.setImageIfDesired(systemSymbolName: "link")
+                // GLANCE: a web link can open in this tab's browser column.
+                if path == nil, let url = URL(string: link), ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+                   BrowserColumn.isEnabled, window?.windowController is BaseTerminalController {
+                    item = menu.addItem(withTitle: "Open in Browser Column", action: #selector(openInBrowserColumn(_:)),
+                                        keyEquivalent: "")
+                    item.representedObject = url
+                    item.setImageIfDesired(systemSymbolName: "globe")
+                }
                 menu.addItem(.separator())
             }
 
@@ -1678,6 +1686,13 @@ extension Ghostty {
             guard let link = sender.representedObject as? String else { return }
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(link, forType: .string)
+        }
+
+        // GLANCE: the link menu's Open in Browser Column.
+        @objc private func openInBrowserColumn(_ sender: NSMenuItem) {
+            guard let url = sender.representedObject as? URL,
+                  let controller = window?.windowController as? BaseTerminalController else { return }
+            BrowserColumn.open(url, in: controller)
         }
 
         @IBAction func copy(_ sender: Any?) {

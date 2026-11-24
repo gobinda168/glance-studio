@@ -28,11 +28,35 @@ struct TabSidebarView: View {
     }
 
     let content: Content
+    @ObservedObject private var rowsChange = TabSidebarModel.shared.rowsChange
+    /// The rows' revision this window shows: the live one while it's the front tab, held still behind it
+    /// (`followingFront`). Titles, bells and the selection change all the time, and every hidden tab rebuilding its
+    /// rows for each change made strip clicks and tab switches stall.
+    @State private var revision = TabSidebarModel.shared.revision
+    @State private var window: NSWindow?
+
+    init(content: Content = .terminals) {
+        self.content = content
+    }
+
+    var body: some View {
+        TabSidebarRows(content: content, window: window, revision: revision)
+            .followingFront(rowsChange.revision, into: $revision, window: window)
+            .background(WindowAccessor { found in
+                window = found
+                if let found { TabSidebarModel.shared.watch(found) }
+            })
+    }
+}
+
+/// `TabSidebarView`'s list, drawn again when `revision` changes.
+private struct TabSidebarRows: View {
+    let content: TabSidebarView.Content
+    let window: NSWindow?
+    let revision: Int
     @ObservedObject private var model = TabSidebarModel.shared
-    @ObservedObject private var rowsChange = TabSidebarModel.shared.rowsChange // redraws the rows
     @ObservedObject private var groups = TabGroups.shared
     @ObservedObject private var features = StudioFeatures.shared
-    @State private var window: NSWindow?
     /// The tab list's height, for how far History may grow into it.
     @State private var tabsHeight: CGFloat = 0
     @Namespace private var selection
@@ -40,10 +64,6 @@ struct TabSidebarView: View {
 
     /// What a full-height History leaves the tab list: about one row.
     private static let tabsLeast: CGFloat = 84
-
-    init(content: Content = .terminals) {
-        self.content = content
-    }
 
     var body: some View {
         let all = model.rows(for: window)
@@ -70,10 +90,6 @@ struct TabSidebarView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(GlassChrome.move(reduceMotion), value: selected)
-        .background(WindowAccessor { found in
-            window = found
-            if let found { model.watch(found) }
-        })
     }
 
     /// The folder History lists: the selected terminal's, else any terminal tab's in this window's group.
@@ -549,8 +565,9 @@ private struct TabRowView: View {
                     .foregroundStyle(row.isSelected || lit ? StudioColors.ink : StudioColors.body)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                if !row.folder.isEmpty || row.branch != nil || row.panes > 1 {
-                    Subline(folder: row.folder, branch: row.branch, panes: row.panes)
+                if !row.folder.isEmpty || row.branch != nil || row.panes > 1 || row.worktree != nil {
+                    Subline(folder: row.folder, branch: row.branch, panes: row.panes, worktree: row.worktree,
+                            mixed: row.mixed)
                 }
                 if let command = row.command {
                     CommandChip(command: command)
@@ -631,6 +648,9 @@ private struct Subline: View {
     let folder: String
     let branch: String?
     var panes = 1
+    /// The linked worktree's folder name, and whether it mixes work (⚠).
+    var worktree: String?
+    var mixed = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -641,6 +661,17 @@ private struct Subline: View {
             }
             if let branch {
                 BranchChip(branch, size: 11)
+            }
+            if let worktree {
+                Text("· \(worktree)")
+                    .foregroundStyle(StudioColors.muted)
+                    .truncationMode(.middle)
+                    .help("In the worktree \(worktree)")
+            }
+            if mixed {
+                StudioIcon(.alert, size: 10)
+                    .foregroundStyle(StudioColors.coralInk)
+                    .help("This worktree mixes work: changes by more than one author, or more than one live session")
             }
             if panes > 1 {
                 SplitChip(panes: panes)

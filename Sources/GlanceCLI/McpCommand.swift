@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import GlanceCore
+import GlanceKit
 
 /// `glance mcp` (spec 2026-10-09-orb-channel-design.md, "Parts"): the stdio MCP server Claude Code starts for each
 /// session. It answers the MCP handshake and the tool list itself, and relays tool calls, permission requests,
@@ -17,6 +18,9 @@ enum McpCommand {
 final class OrbShim: @unchecked Sendable {
   private let socketPath: String
   private let queue = DispatchQueue(label: "dev.glance.mcp")
+  /// The proof tools' own serial queue: calls run one at a time in the order they arrived, so two calls in one turn
+  /// (a pending item, then ticking it off) never invert, and none of their file or git work blocks `queue`.
+  private let proofQueue = DispatchQueue(label: "dev.glance.mcp.proof", qos: .userInitiated)
   private var fd: Int32 = -1
   private var reader: DispatchSourceRead?
   private var lines = ShellLines()
@@ -77,7 +81,7 @@ final class OrbShim: @unchecked Sendable {
         listWaiting.append(id)
         queue.asyncAfter(deadline: .now() + 1.5) { self.answerLists() }
       } else {
-        write(MCP.result(id: id, ["tools": .array(ChannelTools.definitions(assistant: assistant))]))
+        write(MCP.result(id: id, ["tools": .array(ChannelTools.definitions(assistant: assistant, proof: proofOn()))]))
       }
     case "tools/call":
       call(id: id, name: params["name"]?.string ?? "", arguments: params["arguments"] ?? [:])
@@ -89,10 +93,28 @@ final class OrbShim: @unchecked Sendable {
   private func answerLists() {
     let waiting = listWaiting
     listWaiting = []
-    for id in waiting { write(MCP.result(id: id, ["tools": .array(ChannelTools.definitions(assistant: assistant))])) }
+    for id in waiting { write(MCP.result(id: id, ["tools": .array(ChannelTools.definitions(assistant: assistant, proof: proofOn()))])) }
   }
 
+  /// Whether this shim lists and answers the proof tools: a session (not the orb assistant) under tracking hooks that
+  /// observe proof. Reads the small hook script; the work the tools do never runs on `queue`.
+  private func proofOn() -> Bool { !assistant && TrackHooks.workOn() }
+
   private func call(id: JSONValue, name: String, arguments: JSONValue) {
+    // The proof tools are answered here, with or without Studio. They read and write files and may run git, so they
+    // run off `queue`, which also carries Studio's socket, on `proofQueue` (serial, so in arrival order); the reply is
+    // written back on `queue`.
+    if !assistant && ProofTools.names.contains(name) {
+      proofQueue.async {
+        let line = TrackHooks.workOn()
+          ? ProofTools.reply(id: id, name: name, arguments: arguments,
+                             claudePID: ProcessTree.claudeAncestor(of: getpid()),
+                             cwd: FileManager.default.currentDirectoryPath)
+          : MCP.result(id: id, MCP.toolResult(.string("Unknown tool \(name)."), isError: true))
+        self.queue.async { self.write(line) }
+      }
+      return
+    }
     // Checked here too, so a bad call is answered even without Studio.
     if case .failure(let failure) = ChannelTools.parse(name: name, arguments: arguments, assistant: assistant) {
       write(MCP.result(id: id, MCP.toolResult(.string(failure.message), isError: true)))

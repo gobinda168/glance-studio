@@ -73,6 +73,10 @@ final class PaneLayoutModel: ObservableObject {
 
     static let animation = Animation.spring(response: 0.3, dampingFraction: 0.88)
 
+    /// The defaults key for where the tabs view's bar sits: across the top (false) or down the right side (true). One
+    /// choice for every window, kept across relaunches.
+    static let tabsOnRightKey = "paneTabsOnRight"
+
     // MARK: Relaunch
 
     /// What a window keeps across a relaunch: the pane tabs' names and order, which panes are minimized, whether the
@@ -267,29 +271,12 @@ final class PaneLayoutModel: ObservableObject {
         updatePolling()
     }
 
+    /// A pane tab switch shows the pane at once: it used to fade up from 35 % over 0.18 s, which read as the pane
+    /// still loading (window tab switches dropped the same fade, PR #107).
     func select(_ view: Ghostty.SurfaceView) {
-        let switched = tabbed && active != view.id
         withAnimation(Self.animation) { active = view.id }
         changed()
         Ghostty.moveFocus(to: view)
-        if switched { fadeIn(view) }
-    }
-
-    /// A pane tab switch crossfades like a window tab switch (`TabSidebarModel.fadeIn`): the pane that comes to the
-    /// front fades up from a dimmer state over 0.18 s. One Core Animation on its layer, so it costs the main thread
-    /// nothing while it plays, and nothing at all under Reduce Motion. It starts a beat later, once SwiftUI has put the
-    /// pane in the window.
-    private func fadeIn(_ view: Ghostty.SurfaceView) {
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak view] in
-            guard let layer = view?.layer else { return }
-            let fade = CABasicAnimation(keyPath: "opacity")
-            fade.fromValue = 0.35
-            fade.toValue = 1
-            fade.duration = 0.18
-            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            layer.add(fade, forKey: "paneSwitch")
-        }
     }
 
     // MARK: Tab order and names

@@ -116,3 +116,15 @@ private func link(_ surface: UUID, _ file: String, cwd: String = app) -> Session
   #expect(router.surface(forTranscript: "/t/a.jsonl") == a)
   #expect(router.surface(forTranscript: "/t/x.jsonl") == nil)
 }
+
+@Test func everyLinkedSessionIsListedInSurfaceOrder() {
+  var router = SessionRouter(home: home)
+  let first = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+  let second = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+  let one = SessionLink(surface: first, sessionID: "s1", transcriptPath: "/t/s1.jsonl", cwd: app, source: "startup")
+  let two = SessionLink(surface: second, sessionID: "s2", transcriptPath: "/t/s2.jsonl", cwd: other, source: "startup")
+  _ = router.setLinks([second: two, first: one])
+  #expect(router.allLinks == [one, two])
+  _ = router.setLinks([second: two])
+  #expect(router.allLinks == [two])
+}

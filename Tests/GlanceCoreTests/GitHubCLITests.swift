@@ -78,3 +78,11 @@ private extension Result {
   #expect(PullRequests.Failure.notGitHub.message == "This project isn't on GitHub.")
   #expect(PullRequests.Failure.failed("HTTP 502").message == "HTTP 502")
 }
+
+@Test func aProgramThatOutlastsItsTimeLimitIsStoppedAndFails() {
+  let started = Date()
+  let result = GitHubCLI.execute("/bin/sleep", ["30"], timeout: 0.5)
+  #expect(Date().timeIntervalSince(started) < 10)
+  #expect(result?.status != 0)
+  #expect(GitHubCLI.execute("/bin/sh", ["-c", "exit 0"], timeout: 5)?.status == 0)
+}

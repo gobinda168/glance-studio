@@ -40,7 +40,7 @@ extension PullRequests {
     public let count: Int
   }
 
-  /// The side bar's tabs, To review, Yours and Merged: all three always, each counting what the filter leaves it, so a
+  /// The side bar's tabs, Yours, To review and Merged: all three always, each counting what the filter leaves it, so a
   /// filter shows where its matches are.
   public static func tabs(_ board: Board, filter: Filter) -> [Tab] {
     List.allCases.map { Tab(list: $0, count: visible(board.pullRequests($0), in: $0, filter: filter).count) }

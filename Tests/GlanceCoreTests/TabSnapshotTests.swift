@@ -30,3 +30,72 @@ import Testing
   #expect(TabSnapshot.Group(tabs: tabs, selected: nil).front == nil)
   #expect(TabSnapshot(groups: [.init(tabs: [])]).isEmpty)
 }
+
+private func terminal(_ id: String) -> TabSnapshot.Tab { .init(kind: "terminal", surface: id) }
+private func razor(_ root: String) -> TabSnapshot.Tab { .init(kind: "razor", key: root) }
+
+@Test func aWindowWithoutATerminalJoinsTheWindowTheUserWasIn() {
+  let snapshot = TabSnapshot(groups: [
+    .init(tabs: [terminal("a"), .init(kind: "home")]),
+    .init(tabs: [terminal("b"), terminal("c")], selected: 1),
+    .init(tabs: [razor("/x")], selected: 0),
+    .init(tabs: [.init(kind: "studio", key: "/y")], selected: 0),
+  ], frontGroup: 1)
+  let folded = snapshot.folded { _ in true }
+  #expect(folded.groups == [
+    .init(tabs: [terminal("a"), .init(kind: "home")]),
+    .init(tabs: [terminal("b"), terminal("c"), razor("/x"), .init(kind: "studio", key: "/y")], selected: 1),
+  ])
+  #expect(folded.frontGroup == 1)
+}
+
+@Test func theSameEditorInSeveralLooseWindowsBecomesOneTab() {
+  let snapshot = TabSnapshot(groups: [
+    .init(tabs: [terminal("a"), razor("/x")]),
+    .init(tabs: [razor("/x")]),
+    .init(tabs: [razor("/y")]),
+    .init(tabs: [razor("/y")]),
+  ], frontGroup: 0)
+  #expect(snapshot.folded { _ in true }.groups == [.init(tabs: [terminal("a"), razor("/x"), razor("/y")])])
+}
+
+@Test func twoEditorsOnOneFolderInOneWindowStay() {
+  // New Editor Tab makes these on purpose.
+  let group = TabSnapshot.Group(tabs: [terminal("a"), razor("/x"), razor("/x")], selected: 2)
+  #expect(TabSnapshot(groups: [group], frontGroup: 0).folded { _ in true }.groups == [group])
+}
+
+@Test func aTerminalThatDidNotComeBackLeavesNoWindowOfItsOwn() {
+  let snapshot = TabSnapshot(groups: [
+    .init(tabs: [terminal("a")], selected: 0),
+    .init(tabs: [razor("/x"), terminal("gone")], selected: 1),
+  ], frontGroup: 0)
+  let folded = snapshot.folded { $0 == "a" }
+  #expect(folded.groups == [.init(tabs: [terminal("a"), razor("/x")], selected: 0)])
+}
+
+@Test func theTabInFrontStaysInFrontWhenItsWindowIsFolded() {
+  let snapshot = TabSnapshot(groups: [
+    .init(tabs: [terminal("a")], selected: 0),
+    .init(tabs: [razor("/x"), razor("/y")], selected: 1),
+  ], frontGroup: 1)
+  let folded = snapshot.folded { _ in true }
+  #expect(folded.groups == [.init(tabs: [terminal("a"), razor("/x"), razor("/y")], selected: 2)])
+  #expect(folded.frontGroup == 0)
+}
+
+@Test func withNoTerminalAtAllTheFirstWindowTakesEveryTab() {
+  let snapshot = TabSnapshot(groups: [
+    .init(tabs: [razor("/x")], selected: 0),
+    .init(tabs: [terminal("gone")], selected: 0),
+    .init(tabs: [razor("/y")], selected: 0),
+  ], frontGroup: 2)
+  let folded = snapshot.folded { _ in false }
+  #expect(folded.groups == [.init(tabs: [razor("/x"), razor("/y")], selected: 1)])
+  #expect(folded.frontGroup == 0)
+}
+
+@Test func anEmptySnapshotStaysEmpty() {
+  #expect(TabSnapshot(groups: []).folded { _ in true }.groups.isEmpty)
+  #expect(TabSnapshot(groups: [.init(tabs: [terminal("gone")])]).folded { _ in false }.isEmpty)
+}

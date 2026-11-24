@@ -1,4 +1,3 @@
-import CoreGraphics
 import Foundation
 import Testing
 @testable import GlanceCore
@@ -17,10 +16,11 @@ import Testing
     == .ready(clientPort: 51234, cdpPort: 51235))
   #expect(AgentBrowserEvent.parse(line: #"{"event":"installing","what":"Playwright 1.58.2"}"#)
     == .installing(what: "Playwright 1.58.2"))
-  #expect(AgentBrowserEvent.parse(line: #"{"event":"browser","id":"b1","kind":"test","version":"1.58.2","cdpPort":40001}"#)
-    == .browser(id: "b1", kind: .test, version: "1.58.2", cdpPort: 40001))
+  #expect(AgentBrowserEvent.parse(line: #"{"event":"browser","id":"b1","kind":"test","version":"1.58.2","cdpPort":40001,"pid":812}"#)
+    == .browser(id: "b1", kind: .test, version: "1.58.2", cdpPort: 40001, pid: 812))
+  // A broker from before real windows sends no pid.
   #expect(AgentBrowserEvent.parse(line: #"{"event":"browser","id":"c","kind":"claude","version":"1.64.1","cdpPort":9}"#)
-    == .browser(id: "c", kind: .claude, version: "1.64.1", cdpPort: 9))
+    == .browser(id: "c", kind: .claude, version: "1.64.1", cdpPort: 9, pid: 0))
   #expect(AgentBrowserEvent.parse(line: #"{"event":"browserGone","id":"b1"}"#) == .browserGone(id: "b1"))
   #expect(AgentBrowserEvent.parse(line: #"{"event":"error","message":"npm failed"}"#) == .error("npm failed"))
   #expect(AgentBrowserEvent.parse(line: #"{"event":"stopped"}"#) == .stopped)
@@ -28,32 +28,6 @@ import Testing
   for bad in ["", "hello", "{}", #"{"event":"browser","id":"x"}"#, #"{"event":"nope"}"#, #"{"event":"ready"}"#] {
     #expect(AgentBrowserEvent.parse(line: bad) == nil, "\(bad) isn't an event")
   }
-}
-
-@Test func thePanelSizeBecomesThePageSize() {
-  let fit = AgentBrowserFit.metrics(view: CGSize(width: 640, height: 400), scale: 2)
-  #expect(fit.width == 640 && fit.height == 400 && fit.scale == 2)
-  let tiny = AgentBrowserFit.metrics(view: CGSize(width: 10, height: 3), scale: 1)
-  #expect(tiny.width == 200 && tiny.height == 200)
-  let huge = AgentBrowserFit.metrics(view: CGSize(width: 9000, height: 5000.6), scale: 0)
-  #expect(huge.width == 4096 && huge.height == 4096 && huge.scale == 1)
-}
-
-@Test func framesAreLetterboxedInThePanel() {
-  // A 1280×720 page in a 400×400 view: full width, centred vertically.
-  let rect = AgentBrowserFit.aspectFit(frame: CGSize(width: 1280, height: 720), in: CGRect(x: 0, y: 0, width: 400, height: 400))
-  #expect(rect == CGRect(x: 0, y: 87.5, width: 400, height: 225))
-  // A tall page: full height, centred horizontally.
-  let tall = AgentBrowserFit.aspectFit(frame: CGSize(width: 390, height: 844), in: CGRect(x: 10, y: 0, width: 844, height: 422))
-  #expect(tall.height == 422 && tall.width == 195 && tall.minX == 10 + (844 - 195) / 2)
-  #expect(AgentBrowserFit.aspectFit(frame: .zero, in: CGRect(x: 0, y: 0, width: 5, height: 5)) == .zero)
-}
-
-@Test func pointsInThePanelMapToThePage() {
-  let shown = CGRect(x: 0, y: 87.5, width: 400, height: 225)
-  let page = CGSize(width: 1280, height: 720)
-  #expect(AgentBrowserFit.pagePoint(CGPoint(x: 200, y: 200), shown: shown, page: page) == CGPoint(x: 640, y: 360))
-  #expect(AgentBrowserFit.pagePoint(CGPoint(x: 200, y: 10), shown: shown, page: page) == nil) // in the letterbox
 }
 
 @Test func portsKeepTheSavedPairWhileItIsFree() {
@@ -86,4 +60,34 @@ import Testing
   #expect(AgentBrowserPackages.folder(home: "/Users/me") == "/Users/me/Library/Application Support/Glance/agent-browser")
   #expect(AgentBrowserPackages.mcpScript(home: "/Users/me")
     == "/Users/me/Library/Application Support/Glance/agent-browser/node_modules/@playwright/mcp/cli.js")
+}
+
+@Test func aPageOpensWhenATabAppearsOrGoesSomewhereNew() {
+  #expect(AgentBrowserPageOpening.opens(from: nil, to: "about:blank"), "a new tab")
+  #expect(AgentBrowserPageOpening.opens(from: "https://a.dev/", to: "https://b.dev/"), "Playwright MCP reuses its one tab")
+  #expect(AgentBrowserPageOpening.opens(from: "about:blank", to: "http://localhost:5173/"))
+  #expect(AgentBrowserPageOpening.opens(from: "https://a.dev/x", to: "https://a.dev/y"))
+  #expect(!AgentBrowserPageOpening.opens(from: "https://a.dev/", to: "https://a.dev/"), "only the title changed")
+  #expect(!AgentBrowserPageOpening.opens(from: "https://a.dev/#top", to: "https://a.dev/#end"), "a jump within the page")
+}
+
+@Test func browserOptionsReadWhatStudioWrote() throws {
+  let home = NSTemporaryDirectory() + "glance-ab-options-\(UUID().uuidString)"
+  defer { try? FileManager.default.removeItem(atPath: home) }
+  let file = AgentBrowserOptions.file(home: home)
+  #expect(file == AgentBrowserPackages.folder(home: home) + "/options.json")
+
+  // No file yet, an unreadable one and one of the wrong shape all read as the defaults: no session windows.
+  #expect(AgentBrowserOptions.read(home: home) == AgentBrowserOptions(sessionWindows: false, socket: nil))
+  try FileManager.default.createDirectory(atPath: (file as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+  for bad in ["", "not json", "[1,2]", #"{"sessionWindows":"yes"}"#, #"{"socket":"/x"}"#] {
+    try bad.write(toFile: file, atomically: true, encoding: .utf8)
+    #expect(AgentBrowserOptions.read(home: home) == AgentBrowserOptions(sessionWindows: false, socket: nil), "\(bad) isn't options")
+  }
+
+  try #"{"sessionWindows":true,"socket":"/tmp/glance/sessions/s.sock"}"#.write(toFile: file, atomically: true, encoding: .utf8)
+  #expect(AgentBrowserOptions.read(home: home) == AgentBrowserOptions(sessionWindows: true, socket: "/tmp/glance/sessions/s.sock"))
+  // The socket is optional: Studio may not be listening yet.
+  try #"{"sessionWindows":true}"#.write(toFile: file, atomically: true, encoding: .utf8)
+  #expect(AgentBrowserOptions.read(home: home) == AgentBrowserOptions(sessionWindows: true, socket: nil))
 }

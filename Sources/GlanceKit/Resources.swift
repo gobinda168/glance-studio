@@ -24,6 +24,12 @@ public enum Resources {
   public static var statusLineScript: URL { root.appendingPathComponent("hooks/statusline.sh") }
   /// Glance browser broker (spec 2026-10-14-agent-browser-design.md), run with the user's node.
   public static var agentBrowserScript: URL { root.appendingPathComponent("agent-browser/agent-browser.mjs") }
+  /// The per-session Playwright MCP wrapper (spec 2026-11-01-command-center-design.md §4.1), run instead of the MCP's
+  /// own cli.js when Command Center gives each Claude session a browser window.
+  public static var sessionMcpScript: URL { root.appendingPathComponent("agent-browser/session-mcp.mjs") }
+  /// Make explainer's page scripts, injected into every scene page: "clock" (the fake clock) and "harness" (scene
+  /// switching and seeking). In the app, scripts/build-terminal.sh copies them under Contents/Resources/explainer.
+  public static func explainerScript(_ name: String) -> URL { root.appendingPathComponent("explainer/\(name).js") }
   /// Glance Humanize (an output style file): `glance setup` installs it, Studio's headless chats append its text.
   public static var outputStyle: URL { root.appendingPathComponent("styles/humanize.md") }
   /// Glance Humanize without its front matter, read once.

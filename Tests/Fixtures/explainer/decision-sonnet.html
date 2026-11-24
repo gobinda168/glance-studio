@@ -1,0 +1,41 @@
+<p class="answer">I'd build the visual mode on option A: a separate headless Claude writes the scenes, and a sandboxed WebView plays them. Which approach should the design build on?</p>
+
+<section data-beat="three-ways">
+  <h2>Three ways differ in who writes the scene and what draws it</h2>
+  <p class="say">A and B both use a separate Claude. A draws with HTML in a WebView, B with native SwiftUI scene types. C has your session's own Claude write every scene.</p>
+  <div class="viz">
+    <div class="lanes">
+      <div class="lane in" style="--d:1s"><button class="node fresh" data-detail="My pick. A headless Claude reads the reply and what the turn did, writes scenes and narration, and a sandboxed WebView plays them."><span class="t">A</span><span class="m">Side Claude</span></button><span class="wire live" style="--d:1.5s" aria-hidden="true"></span><button class="node" data-detail="HTML in a sandboxed WebView, with network access blocked the same way as the explainer skill."><span class="t">HTML player</span><span class="m">WebView</span></button></div>
+      <div class="lane in" style="--d:3s"><button class="node" data-detail="Claude writes JSON choosing from a fixed set of scenes: timeline, diff, before/after, flow, stats."><span class="t">B</span><span class="m">Side Claude</span></button><span class="wire" style="--d:3.5s" aria-hidden="true"></span><button class="node" data-detail="SwiftUI draws the scene types we have built. Fully native, on your design system."><span class="t">Native types</span><span class="m">SwiftUI</span></button></div>
+      <div class="lane in" style="--d:5s"><button class="node" data-detail="No second Claude. The session's own Claude is told to always call a new visual tool."><span class="t">C</span><span class="m">Session Claude</span></button><span class="wire" style="--d:5.5s" aria-hidden="true"></span><button class="node" data-detail="A new visual tool that the session calls after each reply."><span class="t">Visual tool</span><span class="m">in-session</span></button></div>
+    </div>
+    <p class="hint">Click a box to see what it is.</p>
+  </div>
+</section>
+
+<section data-beat="tradeoffs">
+  <h2>Each option gives something up</h2>
+  <p class="say">A costs extra tokens per reply and puts a WebView in a native view. B looks like templates. C fills your session's context and can forget to call the tool.</p>
+  <div class="viz">
+    <div class="lanes">
+      <div class="lane in" style="--d:1s"><div class="node fresh"><span class="t">A</span><span class="m ink">Free-form motion; session untouched; works mid-session</span></div></div>
+      <div class="lane in" style="--d:3s"><div class="node"><span class="t">A against</span><span class="m coral">Extra tokens each reply; WebView in native view</span></div></div>
+      <div class="lane in" style="--d:6s"><div class="node"><span class="t">B</span><span class="m ink">Native, on design system, likely faster</span></div></div>
+      <div class="lane in" style="--d:7s"><div class="node"><span class="t">B against</span><span class="m coral">Template look; new kinds need app code</span></div></div>
+      <div class="lane in" style="--d:9s"><div class="node"><span class="t">C</span><span class="m ink">No second Claude; knows full context</span></div></div>
+      <div class="lane in" style="--d:10s"><div class="node"><span class="t">C against</span><span class="m coral">Fills session context; may forget; mid-session needs a hook; changes how Claude works</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section data-beat="decision">
+  <h2>Time a scene before committing to A</h2>
+  <p class="say">Before finalising A, I'd time how long a scene really takes to generate. If it's too slow, try a faster model or shorter scenes first. Which approach should the design build on?</p>
+  <div class="viz">
+    <div class="checks">
+      <div class="node check open in" style="--d:1s"><svg viewBox="0 0 18 18" width="17" height="17"><circle cx="9" cy="9" r="6" fill="none" stroke="#e8643c" stroke-width="2"/></svg><span class="t">Time scene generation for A</span><span class="m">not done</span></div>
+      <div class="node check in" style="--d:4s"><svg viewBox="0 0 18 18" width="17" height="17"><circle cx="9" cy="9" r="6" fill="none" stroke="#e3b45a" stroke-width="2"/></svg><span class="t">If too slow: faster model</span><span class="m">first fix</span></div>
+      <div class="node check in" style="--d:5.5s"><svg viewBox="0 0 18 18" width="17" height="17"><circle cx="9" cy="9" r="6" fill="none" stroke="#e3b45a" stroke-width="2"/></svg><span class="t">Or shorter scenes</span><span class="m">first fix</span></div>
+    </div>
+  </div>
+</section>

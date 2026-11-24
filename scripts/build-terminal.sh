@@ -59,10 +59,16 @@ build() {
   cp -R "$root/hooks" "$root/styles" "$app/Contents/Resources/"
   # Claude's browser broker (Resources.agentBrowserScript), without its test.
   mkdir -p "$app/Contents/Resources/agent-browser"
-  cp "$root/agent-browser/agent-browser.mjs" "$app/Contents/Resources/agent-browser/"
+  cp "$root/agent-browser/agent-browser.mjs" "$root/agent-browser/session-mcp.mjs" "$app/Contents/Resources/agent-browser/"
+  # Make explainer's page scripts (Resources.explainerScript): the fake clock and the scene harness.
+  mkdir -p "$app/Contents/Resources/explainer"
+  cp "$root/explainer/clock.js" "$root/explainer/harness.js" "$app/Contents/Resources/explainer/"
   # Automation UIs' glance-automation://glance/tokens.css is the design system's own file (Resources.designTokens).
   mkdir -p "$app/Contents/Resources/design-system/glance"
   cp "$root/design-system/glance/tokens.css" "$app/Contents/Resources/design-system/glance/tokens.css"
+  # Make explainer's skill reads the design tokens next to itself: the design system's own file, copied (and git-ignored)
+  # so that it can't drift.
+  cp "$root/design-system/glance/tokens.css" "$root/mods/glance-proof/skills/glance-explainer/tokens.css"
   # The Claude Code mods every `claude` in Studio loads (ClaudeMods): their code, without tests or generated types.
   rsync -a --exclude tests --exclude .claude-plugin/types --exclude tsconfig.json --exclude vendor.sh \
     "$root/mods" "$app/Contents/Resources/"

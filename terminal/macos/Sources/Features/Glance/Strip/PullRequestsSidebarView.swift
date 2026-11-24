@@ -5,7 +5,7 @@ import SwiftUI
 
 /// The Pull Requests side bar (spec 2026-10-08-pr-repositories-design.md, on 2026-10-07-pr-manager-design.md; tabs,
 /// 2026-10-12-pr-sidebar-tabs-design.md):
-/// - a repository's pull requests, one list at a time under the To review · Yours · Merged tabs: the repository picked
+/// - a repository's pull requests, one list at a time under the Yours · To review · Merged tabs: the repository picked
 ///   in the repository picker, for every window and across launches, else the tab's project on GitHub;
 /// - the repository button with the picker (every repository on the account), the filter field and menu;
 /// - with nothing picked and no project on GitHub, the picker's list at full height; signed out, the sign-in card;
@@ -271,7 +271,7 @@ private struct FilterField: View {
 
 // MARK: - The tabs and the list
 
-/// To review · Yours · Merged, each with what the filter leaves it: the canvas's segmented track (`SegmentedTabs`)
+/// Yours · To review · Merged, each with what the filter leaves it: the canvas's segmented track (`SegmentedTabs`)
 /// across the side bar, the tab shown raised. A tab is as wide as its name and count plus an even share of the room
 /// left, so no name truncates at the side bar's narrowest.
 private struct ListTabs: View {

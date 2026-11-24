@@ -1,7 +1,7 @@
 import Foundation
 
-/// The bar's answer for a folder: its branch, and how much it has changed against the base the pull request would
-/// merge into ("claude/x  +119 −11  Create PR"). Local git only, so it can refresh every few seconds.
+/// A folder's branch against the base a pull request would merge into: what the top bar's Create PR needs. Local git
+/// only, so it can refresh every few seconds.
 public enum BranchSummary {
   public struct Summary: Equatable, Sendable {
     public let branch: String
@@ -15,9 +15,16 @@ public enum BranchSummary {
       self.additions = additions
       self.deletions = deletions
     }
+  }
 
-    public func sentence() -> String {
-      "\(branch) is \(additions) \(additions == 1 ? "line" : "lines") added and \(deletions) removed against \(base)"
+  /// The base, nil without one on origin, and the summary, nil with nothing to raise.
+  public struct Reading: Equatable, Sendable {
+    public let base: String?
+    public let summary: Summary?
+
+    public init(base: String?, summary: Summary?) {
+      self.base = base
+      self.summary = summary
     }
   }
 
@@ -32,8 +39,8 @@ public enum BranchSummary {
     return String(text.dropFirst("origin/".count))
   }
 
-  /// The numstat of `origin/base...HEAD`. Nil when the branch is the base itself or has nothing against it, so the
-  /// bar stays hidden.
+  /// The numstat of `origin/base...HEAD`. Nil when the branch is the base itself or has nothing against it, so Create
+  /// PR stays hidden.
   public static func summary(branch: String, base: String, numstat: String) -> Summary? {
     guard branch != base else { return nil }
     let stats = BranchCompare.fileStats(numstat)
@@ -42,23 +49,21 @@ public enum BranchSummary {
     return Summary(branch: branch, base: base, additions: totals.additions, deletions: totals.deletions)
   }
 
-  /// Blocks: call it off the main thread. Nil outside a repo, on a detached HEAD, on the base, or with no changes.
-  public static func read(folder: String) -> Summary? {
+  /// Blocks: call it off the main thread. Nil outside a repo and on a detached HEAD.
+  public static func read(folder: String) -> Reading? {
     func git(_ arguments: [String]) -> String? {
       guard let result = GitHubCLI.execute("/usr/bin/git", ["-C", folder] + arguments,
                                            environment: WorkingChanges.environment), result.status == 0 else { return nil }
       return String(decoding: result.output, as: UTF8.self)
     }
-    guard let branch = GitHead.branch(inFolder: folder), branch.count != 7 || !branch.allSatisfy(\.isHexDigit) else {
-      return nil
-    }
+    guard let branch = GitHead.branch(inFolder: folder), !GitHead.looksDetached(branch) else { return nil }
     // Polled every few seconds: while HEAD and the base are the same commits the diff is too, so one rev-parse
     // answers instead of symbolic-ref and a diff.
     func fingerprint(_ base: String) -> String? {
       git(["rev-parse", "HEAD", BranchCompare.baseRef(base)])
     }
     if let last = cache.get(folder), last.branch == branch, let now = fingerprint(last.base), now == last.fingerprint {
-      return last.summary
+      return Reading(base: last.base, summary: last.summary)
     }
     var candidates = [git(originHeadArguments).flatMap(base(fromOriginHead:))].compactMap { $0 }
     candidates += fallbackBases.compactMap { base(fromOriginHead: $0) }
@@ -67,9 +72,9 @@ public enum BranchSummary {
       guard let numstat = git(BranchCompare.numstatArguments(base: base, head: "HEAD")) else { continue }
       let found = summary(branch: branch, base: base, numstat: numstat)
       if let stamp { cache.set(folder, Cached(branch: branch, base: base, fingerprint: stamp, summary: found)) }
-      return found
+      return Reading(base: base, summary: found)
     }
-    return nil
+    return Reading(base: nil, summary: nil)
   }
 
   private struct Cached: Sendable {

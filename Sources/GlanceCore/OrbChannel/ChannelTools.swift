@@ -15,6 +15,14 @@ public enum ChannelCall: Equatable, Sendable {
   case status(text: String?, state: ChannelOrbState?)
   case dismiss(id: String)
 
+  // The user's to-dos and notes in Glance (CaptureStore): any session and the orb assistant.
+  case todos(group: String?, includeDone: Bool)
+  case addTodo(text: String, group: String?, notes: String?)
+  case completeTodo(id: String)
+  case notes(query: String?)
+  case addNote(title: String, text: String)
+  case appendToNote(id: String, text: String)
+
   // Secrets (spec 2026-10-10-secrets-broker-design.md): any session; Studio answers only with Feature.secrets on.
   case secretsList
   case httpRequest(SecretHTTPCall)
@@ -44,9 +52,14 @@ public enum ChannelTools {
   /// `http_request`: the most `body` text taken inline (the request body limit), and header entries.
   static let requestBodyLimit = 10 * 1024 * 1024
   static let headerLimit = 50
+  /// A to-do's text is its title; detail goes in its notes.
+  static let todoTextLimit = 500
+  static let noteTextLimit = 100_000
 
-  public static func definitions(assistant: Bool) -> [JSONValue] {
-    assistant ? sessionTools + assistantTools : sessionTools + secretTools
+  /// `proof`: list the proof tools too (a session's tools only; the shim passes it when Command Center's hooks are on).
+  public static func definitions(assistant: Bool, proof: Bool = false) -> [JSONValue] {
+    assistant ? sessionTools + captureTools + assistantTools
+      : sessionTools + captureTools + secretTools + (proof ? ProofTools.definitions : [])
   }
 
   static let sessionTools: [JSONValue] = [
@@ -84,6 +97,26 @@ public enum ChannelTools {
                             "description": "working, waiting (you need the user), done, error, or idle."])],
          required: []),
     tool("dismiss", "Take away a card this session showed.", ["id": string("The card's id.")], required: ["id"]),
+  ]
+
+  /// The user's to-dos and notes, the ones Glance's To-dos & Notes tab shows.
+  static let captureTools: [JSONValue] = [
+    tool("todos", "The user's to-dos in Glance, open ones first: id, text, status (todo, doing, done) and group.",
+         ["group": string("Only this group's (Work, Personal…); leave out for all."),
+          "include_done": boolean("Include finished ones too. Default false.")], required: []),
+    tool("add_todo", "Add a to-do to the user's list in Glance, at the top. Returns its id.",
+         ["text": string("A short imperative, at most 500 characters: \"Reply to Sam about the invoice\"."),
+          "group": string("A group's name from todos() (Work, Personal…); leave out for none."),
+          "notes": string("Detail to keep with it.")], required: ["text"]),
+    tool("complete_todo", "Mark one of the user's to-dos done.", ["id": string("Its id from todos().")],
+         required: ["id"]),
+    tool("notes", "The user's notes in Glance, newest first: id, title, when it changed and the start of it.",
+         ["query": string("Words to look for in the title or text; leave out for the latest.")], required: []),
+    tool("add_note", "Save a new note in Glance. Returns its id.",
+         ["title": string("A short heading."), "text": string("The note, in Markdown.")], required: []),
+    tool("append_to_note", "Add text at the end of one of the user's notes, under a line saying when.",
+         ["id": string("Its id from notes()."), "text": string("What to add, in Markdown.")],
+         required: ["id", "text"]),
   ]
 
   /// Sessions only: the orb assistant doesn't get the secrets tools in S1 (spec "Session tools only").
@@ -176,6 +209,30 @@ public enum ChannelTools {
         return .success(.status(text: text, state: state))
       case "dismiss":
         return .success(.dismiss(id: try args.text("id")))
+      case "todos":
+        return .success(.todos(group: try args.optionalText("group"),
+                               includeDone: try args.flag("include_done", default: false)))
+      case "add_todo":
+        let text = try args.text("text")
+        guard text.count <= todoTextLimit else {
+          throw Failure("text takes at most \(todoTextLimit) characters; put the rest in notes.")
+        }
+        return .success(.addTodo(text: text, group: try args.optionalText("group"), notes: try args.optionalText("notes")))
+      case "complete_todo":
+        return .success(.completeTodo(id: try args.text("id")))
+      case "notes":
+        return .success(.notes(query: try args.optionalText("query")))
+      case "add_note":
+        let title = try args.optionalText("title") ?? ""
+        let text = try args.optionalText("text") ?? ""
+        guard !title.isEmpty || !text.isEmpty else { throw Failure("add_note needs a title or text.") }
+        guard text.count <= noteTextLimit else { throw Failure("text takes at most \(noteTextLimit) characters.") }
+        return .success(.addNote(title: title, text: text))
+      case "append_to_note":
+        let id = try args.text("id")
+        let text = try args.text("text")
+        guard text.count <= noteTextLimit else { throw Failure("text takes at most \(noteTextLimit) characters.") }
+        return .success(.appendToNote(id: id, text: text))
       case "secrets_list" where !assistant:
         return .success(.secretsList)
       case "http_request" where !assistant:

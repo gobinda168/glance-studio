@@ -46,6 +46,12 @@ enum SetupCommand {
 
     do {
       try ClaudeSetup.apply(plan, paths: paths)
+      if !install {
+        // ClaudeSetup.apply just backed up the settings; TrackHooks never overwrites a backup, so that one stays.
+        do { try TrackHooks.set(on: false, glance: "") } catch {
+          print("note: couldn't remove the tracking hooks (\(error.localizedDescription)); they may still be installed. `glance track-hooks uninstall` removes them.")
+        }
+      }
       if install {
         print("✓ Done. In Claude Code pick Glance Humanize with /output-style, then keep Glance running.")
         if !plan.statusLineUnsupported {
@@ -87,7 +93,7 @@ enum SetupCommand {
     }
   }
 
-  /// Glance browser's MCP server ("glance-browser"): the Playwright MCP on the Chromium Studio shows in a floating panel.
+  /// Glance browser's MCP server ("glance-browser"): the Playwright MCP on the Chromium window Studio runs.
   private static func registerBrowserMCP(install: Bool, glancePath: String) {
     let arguments = install ? BrowserMCPSetup.addArguments(glancePath: glancePath) : BrowserMCPSetup.removeArguments
     if install { _ = runClaude(BrowserMCPSetup.removeArguments) }

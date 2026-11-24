@@ -41,6 +41,27 @@ public enum SyntaxHighlight {
       ".zshrc": .shell, ".bashrc": .shell,
     ]
 
+    private static let byFence: [String: Language] = [
+      "typescript": .javascript, "javascript": .javascript, "node": .javascript, "nodejs": .javascript,
+      "python": .python, "python3": .python, "py3": .python,
+      "rust": .rust, "shell": .shell, "shellscript": .shell, "shellsession": .shell, "console": .shell,
+      "terminal": .shell, "ruby": .ruby, "golang": .go, "json5": .json,
+      "c++": .cLike, "objc": .cLike, "objective-c": .cLike, "objectivec": .cLike, "csharp": .cLike,
+      "kotlin": .cLike, "scala": .cLike,
+    ]
+
+    /// The language of a Markdown code fence's name ("typescript", "bash", "c++", or a file extension like "rs"), or
+    /// nil when it isn't one these colours know.
+    public init?(fence: String) {
+      let name = fence.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      guard !name.isEmpty else { return nil }
+      if let language = Self.byFence[name] ?? Self.byExtension[name] {
+        self = language
+      } else {
+        return nil
+      }
+    }
+
     /// The language of a file by its name, or nil when it isn't one these colours know.
     public init?(path: String) {
       let name = path.split(separator: "/").last.map(String.init) ?? path

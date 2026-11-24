@@ -31,9 +31,12 @@ public struct TranscriptDigest: Equatable, Sendable {
     var firstPrompt: String?
     for item in ChatTranscript.thread(jsonl: jsonl, root: root).items {
       switch item {
-      case .user(let text, _):
+      case .user(let sent, _):
         turns += 1
-        if firstPrompt == nil { firstPrompt = text }
+        // A recap's context ahead of the prompt is background, not what the session was asked: it names and sums up nothing.
+        let text = RecapText.typedText(sent)
+        // Only a recap's context makes an empty text not count as the first prompt; otherwise it is as it always was.
+        if firstPrompt == nil, !(text.isEmpty && RecapText.split(sent).context != nil) { firstPrompt = text }
         lines.append((lines.isEmpty ? "" : "\n") + "USER: " + text)
       case .assistant(let blocks):
         lines.append("CLAUDE: " + blocks.map(\.markdown).joined(separator: "\n"))

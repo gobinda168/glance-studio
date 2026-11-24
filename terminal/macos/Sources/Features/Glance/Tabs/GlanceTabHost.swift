@@ -17,10 +17,21 @@ enum GlanceTabHost {
     /// and the restore puts it in its place itself, so the window in front never changes until the restore is done.
     static var restoring = false
 
+    /// The window a new tab joins: `window` if a tab can join it, else the main window, else the terminal used last. Never
+    /// the quick terminal or a panel like Settings, so a tab asked for from one of those, or from nothing, still lands
+    /// inside Studio's window instead of opening one of its own.
+    static func tabWindow(_ window: NSWindow?) -> NSWindow? {
+        [window, NSApp.mainWindow, TerminalController.preferredParent?.window].compactMap { $0 }.first {
+            $0.windowController is TerminalController || $0.windowController is GlanceTabController
+        }
+    }
+
     @discardableResult
     static func open<Controller: NSWindowController & GlanceTabController>(
         kind: String, key: String, from parent: NSWindow?, reuse: Bool = true, make: () -> Controller
     ) -> Controller? {
+        // The restore picks each tab's place itself, and with no window yet there is nothing to join.
+        let parent = restoring ? parent : tabWindow(parent)
         if reuse, let existing = controllers.first(where: {
             $0.tabKind == kind && $0.tabKey == key && parent?.tabGroup != nil && $0.window?.tabGroup === parent?.tabGroup
         }) {

@@ -48,6 +48,9 @@ public struct SessionRouter {
 
   public func link(for surface: UUID) -> SessionLink? { links[surface] }
 
+  /// Every linked session, in a fixed order (by surface), for the board.
+  public var allLinks: [SessionLink] { links.values.sorted { $0.surface.uuidString < $1.surface.uuidString } }
+
   public func surface(forTranscript path: String) -> UUID? {
     links.first { $0.value.transcriptPath == path }?.key
   }

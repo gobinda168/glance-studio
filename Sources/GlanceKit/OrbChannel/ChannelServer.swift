@@ -3,9 +3,9 @@ import Foundation
 import GlanceCore
 
 /// Studio's end of the orb channel (spec 2026-10-09-orb-channel-design.md, "Parts"): the Unix socket each
-/// `glance mcp` connects to, one JSON message per line both ways. Only this user can open it (folder 0700, socket
-/// 0600). Writes are queued per connection and sent when the socket can take them, so the main thread never waits on
-/// a shim. Built like Studio's shell bridge.
+/// `glance mcp` connects to, one JSON message per line both ways (it also carries the Glance browser's session windows,
+/// `AgentBrowserSessions`). Only this user can open it (folder 0700, socket 0600). Writes are queued per connection and
+/// sent when the socket can take them, so the main thread never waits on a shim. Built like Studio's shell bridge.
 @MainActor
 final class ChannelServer {
   typealias ConnectionID = Int32
@@ -45,7 +45,7 @@ final class ChannelServer {
   }
 
   /// True when something is listening at `path`.
-  private static func isLive(_ path: String) -> Bool {
+  static func isLive(_ path: String) -> Bool {
     guard var address = address(for: path) else { return false }
     let probe = socket(AF_UNIX, SOCK_STREAM, 0)
     guard probe >= 0 else { return false }
@@ -59,23 +59,23 @@ final class ChannelServer {
   func start(path: String) throws {
     guard listener < 0 else { return }
     guard var address = Self.address(for: path) else {
-      throw Failure(description: "The orb channel's socket path is too long: \(path)")
+      throw Failure(description: "The socket path is too long: \(path)")
     }
     let folder = (path as NSString).deletingLastPathComponent
     try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true,
                                             attributes: [.posixPermissions: 0o700])
     chmod(folder, 0o700) // it may have existed with looser permissions
-    if Self.isLive(path) { throw Failure(description: "Another Glance Studio already has the orb channel.") }
+    if Self.isLive(path) { throw Failure(description: "Another Glance Studio is already listening on this socket.") }
     unlink(path) // left by a crash
     let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-    guard fd >= 0 else { throw Failure(description: "Couldn't create the orb channel's socket.") }
+    guard fd >= 0 else { throw Failure(description: "Couldn't create the socket.") }
     let bound = withUnsafePointer(to: &address) {
       $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
     }
     guard bound == 0 else {
       let reason = String(cString: strerror(errno))
       close(fd)
-      throw Failure(description: "Couldn't open the orb channel: \(reason)")
+      throw Failure(description: "Couldn't open the socket: \(reason)")
     }
     var info = stat()
     let made = stat(path, &info) == 0 ? (device: info.st_dev, inode: info.st_ino) : nil
@@ -83,7 +83,7 @@ final class ChannelServer {
       let reason = String(cString: strerror(errno))
       close(fd)
       if made != nil { unlink(path) }
-      throw Failure(description: "Couldn't open the orb channel: \(reason)")
+      throw Failure(description: "Couldn't open the socket: \(reason)")
     }
     _ = fcntl(fd, F_SETFL, O_NONBLOCK)
     _ = fcntl(fd, F_SETFD, FD_CLOEXEC)

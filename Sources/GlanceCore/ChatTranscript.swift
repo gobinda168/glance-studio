@@ -132,9 +132,11 @@ public enum ChatTranscript {
   }
 
   /// Auto mode's refusal: "Permission for this action was denied by the Claude Code auto mode classifier…".
+  /// Also recognizes user rejections: "The user doesn't want to proceed…" or "The tool use was rejected…".
   static func isDenial(_ text: String) -> Bool {
     let lower = text.lowercased()
-    return lower.contains("auto mode classifier") || (lower.contains("permission") && lower.contains("denied"))
+    return lower.contains("auto mode classifier") || lower.contains("denied by")
+      || lower.contains("doesn't want to proceed") || lower.contains("tool use was rejected")
   }
 
   /// What a tool row says after the tool's name: a path (relative to the project when inside it), a command's first

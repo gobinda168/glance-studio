@@ -2123,6 +2123,11 @@ pub const CAPI = struct {
         return surface.core_surface.mouseCaptured();
     }
 
+    /// Returns true if the running program has bracketed paste on.
+    export fn ghostty_surface_bracketed_paste(surface: *Surface) bool {
+        return surface.core_surface.bracketedPaste();
+    }
+
     /// Tell the surface that it needs to schedule a render
     export fn ghostty_surface_mouse_button(
         surface: *Surface,

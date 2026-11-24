@@ -24,7 +24,7 @@ final class GlanceTerminalHost: NSObject {
     private var session: GlanceSession?
     /// Glance's panel or the overlay's is reading a reply aloud.
     var isNarrating: Bool {
-        [session, overlay?.session].contains { $0?.isSpeaking == true && $0?.isPaused == false }
+        SessionVoices.isSpeaking || [session, overlay?.session].contains { $0?.isSpeaking == true && $0?.isPaused == false }
     }
     /// The overlay on other terminals: running while Settings' "Overlay" switch is on.
     private(set) var overlay: OverlayController?
@@ -43,6 +43,24 @@ final class GlanceTerminalHost: NSObject {
     func resumeCommand(for view: Ghostty.SurfaceView) -> String? {
         ClaudeResume.command(running: ShellAssist.shared.paneSnapshot(for: view)?.running,
                              sessionID: router.link(for: view.id)?.sessionID)
+    }
+
+    /// The Claude session running in a split, for the Glance view (nil until its SessionStart hook has linked it).
+    func sessionLink(for surface: UUID) -> SessionLink? { router.link(for: surface) }
+
+    /// Every Claude session linked to an open split, for the board.
+    func allSessionLinks() -> [SessionLink] { router.allLinks }
+
+    /// The foreground process of each open split. It needs the terminal, so it is read here; whether it is `claude` is
+    /// checked off the main thread.
+    func foregroundPIDs() -> [UUID: Int32] {
+        var result: [UUID: Int32] = [:]
+        for controller in TerminalController.all {
+            for view in controller.surfaceTree {
+                if let pid = view.surfaceModel?.foregroundPID.flatMap(Int32.init(exactly:)) { result[view.id] = pid }
+            }
+        }
+        return result
     }
 
     /// The session whose summary the pane shows (spec 2026-10-11-humanize-summaries-design.md), or nil.
@@ -143,6 +161,7 @@ final class GlanceTerminalHost: NSObject {
         }
         dictation.onHoldChanged = { [weak self] holding in
             guard let self else { return }
+            SessionVoices.dictationHold(holding)
             if NSApp.isActive && Prefs.surfaces.terminal { self.session?.dictationHold(holding) }
             else { self.overlay?.session?.dictationHold(holding) }
         }
@@ -170,8 +189,15 @@ final class GlanceTerminalHost: NSObject {
         applySurfaces()
         // Meeting nudges: a glowing pill at the top when a meeting starts; one said out loud stops a reply being read.
         MeetingNudger.shared.willSpeak = { [weak self] in
+            SessionVoices.stopAll()
             self?.session?.stop()
             self?.overlay?.session?.stop()
+        }
+        // The session view's voices: one voice at a time.
+        SessionVoices.silenceOthers = { [weak self] in
+            self?.session?.stop()
+            self?.overlay?.session?.stop()
+            OrbChannelHub.stopSpeech()
         }
         MeetingNudger.shared.start()
         // Journal: collects the day and drafts its recap; the "Your day is ready" nudge's Review opens that day.
@@ -475,6 +501,7 @@ final class GlanceTerminalHost: NSObject {
         for link in links where !open.contains(link.surface) { sessionLinks.remove(surface: link.surface) }
         apply(router.setLinks(bySurface))
         summaryFocusChanged()
+        NotificationCenter.default.post(name: .glanceSessionLinksChanged, object: nil)
     }
 
     private func apply(_ action: SessionRouter.Action) {
@@ -978,6 +1005,7 @@ final class GlanceTerminalHost: NSObject {
     }
 
     @objc func playPause() {
+        if SessionVoices.playPause() { return }
         session?.playPause()
     }
 
@@ -1024,18 +1052,25 @@ final class GlanceTerminalHost: NSObject {
 
     /// The tab sidebar's and the top bar's Home entries: their window (the notification's object) or the key one.
     /// Glance browser (spec 2026-10-14-agent-browser-design.md): its two ports listen from launch and start the
-    /// broker on first use; a page opening shows the panel.
+    /// broker on first use; a page opening brings its Chromium window forward.
     private func startAgentBrowser() {
         let broker = AgentBrowserBroker.shared
         broker.quitsWhenIdle = BrowserData.agentBrowserQuitsWhenIdle
-        broker.keepAlive = { AgentBrowserPanel.shared.isShown || !AgentBrowserModel.shared.pages.isEmpty }
-        AgentBrowserModel.shared.onPageOpened = {
-            if BrowserData.showsAgentBrowser, !AgentBrowserPanel.shared.isShown { AgentBrowserPanel.shared.show() }
+        broker.engine = BrowserData.agentBrowserEngine
+        broker.keepAlive = { !AgentBrowserModel.shared.pages.isEmpty }
+        AgentBrowserModel.shared.onPageOpened = { browserId in
+            if BrowserData.showsAgentBrowser { AgentBrowserWindow.raise(browserId: browserId) }
         }
+        // Command Center: a window for each Claude session. The options are written after the engine is set, and
+        // before the broker can start (its first connection), which reads whether session windows are on.
+        let sessions = AgentBrowserSessions.shared
+        sessions.isEnabled = { StudioFeatures.shared.isOn(.commandCenter) }
+        sessions.onDisconnect = { _, targets in AgentBrowserModel.shared.close(targets: targets) }
+        sessions.start()
         broker.startListening()
     }
 
-    @objc func toggleAgentBrowser() { AgentBrowserPanel.shared.toggle() }
+    @objc func showAgentBrowser() { AgentBrowserWindow.show() }
 
     @objc func quickNote() { QuickNotePanel.shared.show() }
 
@@ -1060,6 +1095,8 @@ final class GlanceTerminalHost: NSObject {
             tabs.target = self
             view.addItem(tabs)
             ProjectSwitchMenu.shared.install(in: view)
+            GlanceModeMenu.shared.install(in: view)
+            BrowserColumnMenu.shared.install(in: view)
             let comments = NSMenuItem(title: "Review Comments", action: #selector(showReviewComments),
                                       keyEquivalent: "")
             comments.target = self
@@ -1069,7 +1106,7 @@ final class GlanceTerminalHost: NSObject {
             // Tickets (⌥⌘T), while the feature is on.
             TicketsMenu.shared.install(in: view)
             if StudioFeatures.shared.isOn(.browser) {
-                let agent = NSMenuItem(title: "Glance Browser", action: #selector(toggleAgentBrowser), keyEquivalent: "b")
+                let agent = NSMenuItem(title: "Glance Browser", action: #selector(showAgentBrowser), keyEquivalent: "b")
                 agent.keyEquivalentModifierMask = [.command, .option]
                 agent.target = self
                 view.addItem(agent)
@@ -1107,6 +1144,8 @@ final class GlanceTerminalHost: NSObject {
             pull.keyEquivalentModifierMask = [.command, .option]
             pull.target = self
             file.insertItem(pull, at: min(4, file.items.count))
+            // New Session in New Worktree… (⌥⌘N) under New Editor Tab, while Worktrees is on.
+            NewWorktreeMenu.shared.install(in: file, at: file.index(of: editor) + 1)
         }
         // Edit › Cut (⌘X): Ghostty's Edit menu has none, so nothing outside a terminal (fields, the Browser) could cut.
         if let edit = mainMenu.items.first(where: { $0.submenu?.title == "Edit" })?.submenu,

@@ -29,7 +29,7 @@ final class PullRequestsModel: ObservableObject {
     @Published private(set) var entries: [String: Entry] = [:]
     /// How many pull requests wait on you in the repository shown last: the strip's badge.
     @Published private(set) var badge = 0
-    /// The side bar's tab (To review, Yours or Merged), in every window and across launches.
+    /// The side bar's tab (Yours, To review or Merged), in every window and across launches.
     @Published var tab: PullRequests.List = Prefs.pullRequestsTab {
         didSet { Prefs.pullRequestsTab = tab }
     }

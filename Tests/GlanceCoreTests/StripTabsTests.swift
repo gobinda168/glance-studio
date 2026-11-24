@@ -4,6 +4,7 @@ import Testing
 @Test func eachTabKindBelongsToItsStripItem() {
   #expect(SidebarMode.owner(ofTabKind: nil) == .terminal) // a terminal tab has no Glance kind
   #expect(SidebarMode.owner(ofTabKind: "home") == .terminal)
+  #expect(SidebarMode.owner(ofTabKind: "command") == .command)
   #expect(SidebarMode.owner(ofTabKind: "razor") == .editor)
   #expect(SidebarMode.owner(ofTabKind: "studio") == .editor)
   #expect(SidebarMode.owner(ofTabKind: "editorStart") == .editor)
@@ -60,4 +61,24 @@ import Testing
 
 @Test func automationsAgentsAndModsOpenTheirLibrary() {
   #expect(SidebarMode.allCases.filter(\.opensLibrary) == [.agents, .automations, .mods])
+}
+
+@Test func aWorktreePageBelongsToCommandOnlyWhileCommandIsOn() {
+  // With Command off the worktree page belongs to no item, as it always did.
+  #expect(SidebarMode.owner(ofTabKind: "worktree", commandCenter: false) == nil)
+  #expect(SidebarMode.owner(ofTabKind: "worktree", commandCenter: true) == .command)
+  // Other kinds are never changed by the flag.
+  #expect(SidebarMode.owner(ofTabKind: "razor", commandCenter: true) == .editor)
+  #expect(SidebarMode.owner(ofTabKind: nil, commandCenter: true) == .terminal)
+  #expect(SidebarMode.owner(ofTabKind: "somethingNew", commandCenter: true) == nil)
+}
+
+@Test func aTerminalTabShowingARecapBelongsToCommandOnlyWhileItShowsOneAndCommandIsOn() {
+  // A recap opens from a Command row in a terminal tab: it is remembered under Command while it shows the recap.
+  #expect(SidebarMode.owner(ofTabKind: nil, commandCenter: true, showingRecap: true) == .command)
+  // Once a session started in it, and with Command off, it is a terminal tab as ever.
+  #expect(SidebarMode.owner(ofTabKind: nil, commandCenter: true, showingRecap: false) == .terminal)
+  #expect(SidebarMode.owner(ofTabKind: nil, commandCenter: false, showingRecap: true) == .terminal)
+  // Only a terminal tab can show one.
+  #expect(SidebarMode.owner(ofTabKind: "razor", commandCenter: true, showingRecap: true) == .editor)
 }

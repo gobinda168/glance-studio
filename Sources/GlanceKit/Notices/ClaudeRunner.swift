@@ -33,9 +33,9 @@ public final class ClaudeRunner {
 
   /// The same stream with the caller's own arguments (an automation's Claude step: its tools, MCP and model) in
   /// `folder` (`ClaudeOneShot.scratchFolder` when nil). `onCost` gets the result's `total_cost_usd` just before
-  /// `.done`.
+  /// `.done`. `removing` names variables Claude must not inherit.
   @discardableResult
-  public static func run(arguments: [String], prompt: String, folder: String?, timeout: TimeInterval,
+  public static func run(arguments: [String], prompt: String, folder: String?, timeout: TimeInterval, removing: [String] = [],
                          onEvent: @escaping @MainActor (Event) -> Void,
                          onCost: (@MainActor (Double) -> Void)? = nil) -> ClaudeOneShot.Run {
     let run = ClaudeOneShot.Run()
@@ -46,7 +46,7 @@ public final class ClaudeRunner {
         return
       }
       RunnerStream(run: run, folder: folder ?? ClaudeOneShot.scratchFolder, onEvent: onEvent, onCost: onCost)
-        .start(found, arguments: arguments, prompt: prompt, timeout: timeout)
+        .start(found, arguments: arguments, prompt: prompt, timeout: timeout, removing: removing)
     }
     return run
   }
@@ -82,7 +82,7 @@ private final class RunnerStream {
     parser = InlineAsk.Parser(folder: folder)
   }
 
-  func start(_ found: ClaudeLocator.Found, arguments: [String], prompt: String, timeout: TimeInterval) {
+  func start(_ found: ClaudeLocator.Found, arguments: [String], prompt: String, timeout: TimeInterval, removing: [String]) {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: found.executable)
     process.arguments = arguments
@@ -90,6 +90,7 @@ private final class RunnerStream {
     var environment = ProcessInfo.processInfo.environment
     if let path = found.path { environment["PATH"] = path }
     environment["CLAUDECODE"] = nil
+    for name in removing { environment[name] = nil }
     process.environment = environment
     let stdin = Pipe(), stdout = Pipe()
     // A write after Claude exits must fail, not kill the app with SIGPIPE.

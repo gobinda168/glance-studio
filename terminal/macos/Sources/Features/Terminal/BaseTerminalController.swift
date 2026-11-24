@@ -63,6 +63,50 @@ class BaseTerminalController: NSWindowController,
     // GLANCE: whether the pane shows as a sidebar or a floating orb (set by the view from the window's width).
     @Published var glancePlacement: PaneLayout.Placement?
 
+    // GLANCE: the Glance view over the terminal (restored with the tab).
+    @Published var glanceMode: Bool = false
+
+    // GLANCE: the Glance view's model lives here, not in the view, so leaving Glance mode loses nothing.
+    private var glanceSession: SessionViewModel?
+
+    /// The tab's Glance view model, made on first use; made again if the split it follows has closed.
+    func glanceSessionModel() -> SessionViewModel {
+        if let model = glanceSession, surfaceTree.contains(where: { $0.id == model.surface }) { return model }
+        glanceSession?.shutdown()
+        let model = SessionViewModel(controller: self)
+        glanceSession = model
+        return model
+    }
+
+    /// The tab's Glance view model, if it was ever made (the board looks for a recap already open).
+    var existingGlanceSession: SessionViewModel? { glanceSession }
+
+    // GLANCE: the browser column on this tab's right (spec 2026-11-24-browser-column-design.md §1), restored with it.
+    @Published var browserColumnOpen: Bool = false
+
+    // GLANCE: the column's tabs live here, not in the view, so closing it or switching to Hyperviz loses nothing.
+    private var browserColumnStore: BrowserColumnModel?
+
+    // GLANCE: made on first use.
+    var browserColumn: BrowserColumnModel {
+        if let model = browserColumnStore { return model }
+        let model = BrowserColumnModel(controller: self)
+        browserColumnStore = model
+        return model
+    }
+
+    // GLANCE: the column if it was ever made (saving a tab never makes one).
+    var existingBrowserColumn: BrowserColumnModel? { browserColumnStore }
+
+    /// The Glance view model of one split: the board opens the split a session runs in, focused or not.
+    func glanceSessionModel(following surface: UUID) -> SessionViewModel {
+        if let model = glanceSession, model.surface == surface { return model }
+        glanceSession?.shutdown()
+        let model = SessionViewModel(controller: self, surface: surface)
+        glanceSession = model
+        return model
+    }
+
     /// True when any surface in this controller currently has an active bell.
     @Published private(set) var bell: Bool = false
 
@@ -1212,6 +1256,10 @@ class BaseTerminalController: NSWindowController,
 
     func windowWillClose(_ notification: Notification) {
         guard let window else { return }
+
+        glanceSession?.shutdown() // GLANCE
+        glanceSession = nil
+        browserColumnStore?.shutdown() // GLANCE: drop the column's pages and timer with the tab
 
         for surfaceView in surfaceTree {
             cancelPendingClipboardConfirmation(for: surfaceView)

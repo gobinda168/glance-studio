@@ -1,13 +1,17 @@
 #!/usr/bin/env node
-// Glance browser broker (spec docs/superpowers/specs/2026-10-14-agent-browser-design.md). Glance Studio runs it
-// with the user's node; it has no dependencies of its own. It runs headless Chromium browsers with Playwright's
-// launchServer:
-//   - Glance browser, Glance's pinned Playwright, for the glance-browser MCP (CDP on --cdp-port);
-//   - one test browser per Playwright version that connects to --client-port (PW_TEST_CONNECT_WS_ENDPOINT), since a
-//     Playwright client only talks to a server of its own version.
+// Glance browser broker (spec docs/superpowers/specs/2026-10-14-agent-browser-design.md, real windows since
+// 2026-10-29). Glance Studio runs it with the user's node; it has no dependencies of its own. It runs Chromium in real,
+// visible windows:
+//   - Glance browser: Glance's pinned Playwright's Chromium, started directly with its own lasting profile (sign-ins
+//     stay) and CDP on --cdp-port, for the glance-browser MCP;
+//   - one test browser per Playwright version that connects to --client-port (PW_TEST_CONNECT_WS_ENDPOINT), through
+//     Playwright's launchServer, since a Playwright client only talks to a server of its own version.
+// With --engine lightpanda, Claude's browser is Lightpanda instead (headless, no window, no screenshots), downloaded
+// once into <home>/lightpanda/<version>; test browsers stay Chromium (Lightpanda speaks CDP, not Playwright's protocol).
+// GLANCE_AGENT_BROWSER_HEADLESS=1 runs them headless (the broker test).
 // Studio reads one JSON line per event on stdout and sends commands on stdin: claude, stop, resume, quit.
 //
-//   node agent-browser.mjs --home <folder> --client-port <port> --cdp-port <port>
+//   node agent-browser.mjs --home <folder> --client-port <port> --cdp-port <port> [--engine chromium|lightpanda]
 //   node agent-browser.mjs install --home <folder>     installs Glance's pinned packages and Chromium, then exits
 
 import { spawn } from "node:child_process";
@@ -19,18 +23,27 @@ import path from "node:path";
 import readline from "node:readline";
 
 // Keep in step with AgentBrowserPackages in Sources/GlanceCore/AgentBrowser/AgentBrowserCore.swift.
-export const GLANCE_PINS = { playwrightCore: "1.64.1", mcp: "0.0.83" };
+export const GLANCE_PINS = { playwrightCore: "1.64.1", mcp: "0.0.83", lightpanda: "1.0.2" };
 const STOPPED = "The user stopped the Glance browser";
+const HEADLESS = process.env.GLANCE_AGENT_BROWSER_HEADLESS === "1";
+/** How long to wait on a Chromium that is asked to quit, at each step (the test shortens it). */
+const QUIT_WAIT_MS = Number(process.env.GLANCE_AGENT_BROWSER_QUIT_WAIT_MS) || 5000;
+/** Marks a folder whose Playwright has its full Chromium (real windows; the headless shell can't show one). */
+const CHROMIUM_OK = ".chromium-window-ok";
+/** The Glance browser's DevTools port and pid, in its profile while it runs (Chromium writes its port only for 0). */
+const PORT_FILE = "GlanceDevToolsPort";
 const CHROMIUM_ONLY = "The Glance browser runs Chromium only; set the project to chromium";
 
 function args(argv) {
-  const out = { command: "serve" };
+  const out = { command: "serve", engine: "chromium" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "install") out.command = "install";
     else if (a === "--home") out.home = argv[++i];
     else if (a === "--client-port") out.clientPort = Number(argv[++i]);
     else if (a === "--cdp-port") out.cdpPort = Number(argv[++i]);
+    else if (a === "--engine") out.engine = argv[++i];
+    else if (a === "--session-windows") out.sessionWindows = true;
   }
   if (!out.home) throw new Error("--home is required");
   return out;
@@ -67,16 +80,16 @@ function run(command, commandArgs, cwd) {
 const npm = () => path.join(path.dirname(process.execPath), "npm");
 const installs = new Map(); // folder → Promise
 
-/** Installs playwright-core@version (and, for Glance's pin, @playwright/mcp) plus its headless Chromium. */
+/** Installs playwright-core@version (and, for Glance's pin, @playwright/mcp) plus its Chromium. */
 export function ensurePlaywright(home, version) {
   const folder = folderFor(home, version);
-  if (installedVersion(folder) === version && fs.existsSync(path.join(folder, ".chromium-ok"))) return Promise.resolve(folder);
+  if (installedVersion(folder) === version && fs.existsSync(path.join(folder, CHROMIUM_OK))) return Promise.resolve(folder);
   if (installs.has(folder)) return installs.get(folder);
   const work = (async () => {
     fs.mkdirSync(folder, { recursive: true });
     const unlock = await lock(folder);
     try {
-      if (installedVersion(folder) === version && fs.existsSync(path.join(folder, ".chromium-ok"))) return folder;
+      if (installedVersion(folder) === version && fs.existsSync(path.join(folder, CHROMIUM_OK))) return folder;
       await install(folder, version);
     } finally {
       unlock();
@@ -107,9 +120,11 @@ async function install(folder, version) {
   if (!fs.existsSync(path.join(folder, "package.json"))) {
     fs.writeFileSync(path.join(folder, "package.json"), JSON.stringify({ name: "glance-agent-browser", private: true }) + "\n");
   }
-  // Without .chromium-ok an earlier install didn't finish: its node_modules may be half written, so start over.
-  fs.rmSync(path.join(folder, "node_modules"), { recursive: true, force: true });
-  {
+  // A folder from the headless days (.chromium-ok) has its packages: it only needs the full Chromium. Otherwise an
+  // earlier install didn't finish and its node_modules may be half written, so start over.
+  const packagesDone = installedVersion(folder) === version && fs.existsSync(path.join(folder, ".chromium-ok"));
+  if (!packagesDone) {
+    fs.rmSync(path.join(folder, "node_modules"), { recursive: true, force: true });
     emit({ event: "installing", what: `Playwright ${version}` });
     const packages = [`playwright-core@${version}`];
     if (version === GLANCE_PINS.playwrightCore) packages.push(`@playwright/mcp@${GLANCE_PINS.mcp}`);
@@ -118,12 +133,8 @@ async function install(folder, version) {
   }
   emit({ event: "installing", what: "Chromium" });
   const cli = path.join(folder, "node_modules/playwright-core/cli.js");
-  try {
-    await run(process.execPath, [cli, "install", "chromium-headless-shell"], folder);
-  } catch {
-    await run(process.execPath, [cli, "install", "chromium"], folder); // Playwright before 1.49 has no headless shell
-  }
-  fs.writeFileSync(path.join(folder, ".chromium-ok"), version + "\n");
+  await run(process.execPath, [cli, "install", "chromium"], folder); // a no-op when the user already has it
+  fs.writeFileSync(path.join(folder, CHROMIUM_OK), version + "\n");
 }
 
 // ── Browsers ────────────────────────────────────────────────────────────────
@@ -143,14 +154,27 @@ function freePort() {
   });
 }
 
-async function launch(home, id, kind, version, cdpPort) {
+async function launch(home, id, kind, version, cdpPort, engine, sessionWindows) {
+  if (kind === "claude" && engine === "lightpanda") {
+    const port = cdpPort ?? (await freePort());
+    const server = await lightpandaBrowser(await ensureLightpanda(home), port);
+    return track({ id, kind, version: `Lightpanda ${GLANCE_PINS.lightpanda}`, cdpPort: port, server });
+  }
   const folder = await ensurePlaywright(home, version);
   const { chromium } = createRequire(path.join(folder, "package.json"))("playwright-core");
   const port = cdpPort ?? (await freePort());
-  const server = await chromium.launchServer({
-    headless: true,
-    args: [`--remote-debugging-port=${port}`, "--remote-debugging-address=127.0.0.1"],
-  });
+  const server =
+    kind === "claude"
+      ? await windowBrowser(chromium, path.join(home, "profile"), port, sessionWindows)
+      : await chromium.launchServer({
+          headless: HEADLESS,
+          args: [`--remote-debugging-port=${port}`, "--remote-debugging-address=127.0.0.1"],
+        });
+  return track({ id, kind, version, cdpPort: port, server });
+}
+
+/** Keeps `browser` until its process exits, and tells Studio about it. */
+function track({ id, kind, version, cdpPort: port, server }) {
   const browser = { id, kind, version, cdpPort: port, server, wsEndpoint: server.wsEndpoint() };
   browsers.set(id, browser);
   server.process().once("exit", () => {
@@ -159,15 +183,194 @@ async function launch(home, id, kind, version, cdpPort) {
       emit({ event: "browserGone", id });
     }
   });
-  emit({ event: "browser", id, kind, version, cdpPort: port });
+  emit({ event: "browser", id, kind, version, cdpPort: port, pid: server.process().pid });
   return browser;
 }
 
-function browser(home, id, kind, version, cdpPort) {
+/**
+ * The Glance browser: Chromium itself, not a Playwright server, so it's an ordinary window the user can use (DevTools,
+ * sign-ins that stay in `profile`). No --enable-automation: no "controlled by automated software" bar. Returns the same
+ * shape as launchServer's server for the rest of the broker. With `sessionWindows` (Command Center: a window for each
+ * Claude session) Chromium also keeps painting windows another window covers, so a session's page doesn't freeze.
+ */
+async function windowBrowser(chromium, profile, port, sessionWindows = false) {
+  fs.mkdirSync(profile, { recursive: true });
+  await closeLeftover(chromium, profile);
+  const flags = [
+    `--remote-debugging-port=${port}`,
+    "--remote-debugging-address=127.0.0.1",
+    `--user-data-dir=${profile}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    // Chromium otherwise asks for the login keychain ("Chromium Safe Storage") to encrypt cookies and passwords, and
+    // asks again whenever its binary changes (each Playwright update). Playwright's own browsers do the same.
+    "--use-mock-keychain",
+    ...(sessionWindows ? ["--disable-backgrounding-occluded-windows"] : []),
+    ...(HEADLESS ? ["--headless=new"] : []),
+  ];
+  const child = spawn(chromium.executablePath(), flags, { stdio: "ignore" });
+  const exited = new Promise((resolve) => child.once("exit", resolve));
+  child.once("error", () => {});
+  // Its DevTools server answers once Chromium is up (a profile left locked by a crash can take a few seconds).
+  for (let tries = 0; ; tries++) {
+    if (child.exitCode !== null) throw new Error(`Chromium quit as it started (exit ${child.exitCode})`);
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/json/version`);
+      if (response.ok) break;
+    } catch {}
+    if (tries >= 100) {
+      child.kill("SIGKILL");
+      throw new Error("Chromium didn't open its DevTools port");
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  fs.writeFileSync(path.join(profile, PORT_FILE), `${port} ${child.pid}\n`);
+  return {
+    process: () => child,
+    wsEndpoint: () => `http://127.0.0.1:${port}`,
+    close: async () => {
+      // Browser.close lets Chromium write its cookies out; a SIGTERM may not wait for that, and a sign-in is only as
+      // lasting as the cookie file. The signals are the fallback, for a browser that doesn't answer; every wait is
+      // bounded, since a Chromium can accept the DevTools socket and never reply.
+      if (child.exitCode === null && (await askToQuit(chromium, port))) await within(exited, QUIT_WAIT_MS);
+      if (child.exitCode === null) child.kill("SIGTERM"); // Chromium saves its session and quits
+      await within(exited, QUIT_WAIT_MS);
+      if (child.exitCode === null) child.kill("SIGKILL");
+    },
+  };
+}
+
+/** Resolves when `promise` does, or after `ms`, whichever comes first. */
+function within(promise, ms) {
+  let timer;
+  return Promise.race([promise, new Promise((r) => (timer = setTimeout(r, ms)))]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Asks the Chromium on `port` to quit through its DevTools port. False when nothing answers there, or not within
+ * `bound` ms (a Chromium can accept the socket and stay silent). Its connection is closed either way.
+ */
+export async function askToQuit(chromium, port, bound = QUIT_WAIT_MS) {
+  let browser;
+  let gaveUp = false;
+  const ask = (async () => {
+    try {
+      browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: bound });
+      if (gaveUp) return false;
+      const session = await browser.newBrowserCDPSession();
+      await session.send("Browser.close").catch(() => {});
+      return true;
+    } catch {
+      return false;
+    } finally {
+      browser?.close().catch(() => {}); // a broker that lives on mustn't keep this connection
+    }
+  })();
+  const answered = await within(ask.then(() => true), bound);
+  const result = answered ? await ask : false;
+  if (!answered) {
+    gaveUp = true;
+    browser?.close().catch(() => {}); // frees the hung request too; a connect still pending closes itself above
+  }
+  return result;
+}
+
+/**
+ * A Glance browser left running by a broker that died (Studio crashed) still holds the profile: a new Chromium would
+ * hand its window to that one and exit. Close it through its DevTools port first.
+ */
+async function closeLeftover(chromium, profile) {
+  let port, pid;
+  try {
+    [port, pid] = fs.readFileSync(path.join(profile, PORT_FILE), "utf8").trim().split(/\s+/).map(Number);
+  } catch {
+    return;
+  }
+  if (!port || !pid) return;
+  // Only a browser that answers on its recorded port is ours: the pid alone may belong to another process by now.
+  if (!(await askToQuit(chromium, port))) return; // nothing answers there: the file is stale
+  // Its port closes before the process is done with the profile.
+  const alive = () => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  for (let tries = 0; tries < 100 && alive(); tries++) await new Promise((r) => setTimeout(r, 100));
+  if (alive()) process.kill(pid, "SIGKILL");
+}
+
+// ── Lightpanda ──────────────────────────────────────────────────────────────
+
+/** The release file for this Mac, or null where Lightpanda has none. */
+export function lightpandaAsset(platform = process.platform, arch = process.arch) {
+  if (platform !== "darwin") return null;
+  return { arm64: "lightpanda-aarch64-macos", x64: "lightpanda-x86_64-macos" }[arch] ?? null;
+}
+
+/** Lightpanda's pinned release in <home>/lightpanda/<version>, downloaded from its GitHub releases the first time. */
+async function ensureLightpanda(home) {
+  const version = GLANCE_PINS.lightpanda;
+  const binary = path.join(home, "lightpanda", version, "lightpanda");
+  if (fs.existsSync(binary)) return binary;
+  const asset = lightpandaAsset();
+  if (!asset) throw new Error("Lightpanda has no build for this Mac");
+  emit({ event: "installing", what: `Lightpanda ${version}` });
+  const response = await fetch(`https://github.com/lightpanda-io/browser/releases/download/${version}/${asset}`);
+  if (!response.ok) throw new Error(`Couldn't download Lightpanda ${version} (HTTP ${response.status})`);
+  fs.mkdirSync(path.dirname(binary), { recursive: true });
+  const partial = binary + ".partial";
+  fs.writeFileSync(partial, Buffer.from(await response.arrayBuffer()), { mode: 0o755 });
+  fs.renameSync(partial, binary);
+  return binary;
+}
+
+/** Lightpanda's CDP server on `port`, in launchServer's server shape. */
+async function lightpandaBrowser(binary, port) {
+  const child = spawn(binary, ["serve", "--host", "127.0.0.1", "--port", String(port)], {
+    stdio: "ignore",
+    env: { ...process.env, LIGHTPANDA_DISABLE_TELEMETRY: "true" },
+  });
+  const exited = new Promise((resolve) => child.once("exit", resolve));
+  child.once("error", () => {});
+  for (let tries = 0; ; tries++) {
+    if (child.exitCode !== null) throw new Error(`Lightpanda quit as it started (exit ${child.exitCode})`);
+    if (await listening(port)) break;
+    if (tries >= 100) {
+      child.kill("SIGKILL");
+      throw new Error("Lightpanda didn't open its CDP port");
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return {
+    process: () => child,
+    wsEndpoint: () => `ws://127.0.0.1:${port}`,
+    close: async () => {
+      if (child.exitCode === null) child.kill("SIGTERM");
+      await Promise.race([exited, new Promise((r) => setTimeout(r, 3000))]);
+      if (child.exitCode === null) child.kill("SIGKILL");
+    },
+  };
+}
+
+function listening(port) {
+  return new Promise((resolve) => {
+    const socket = net.connect(port, "127.0.0.1");
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once("error", () => resolve(false));
+  });
+}
+
+function browser(home, id, kind, version, cdpPort, engine = "chromium", sessionWindows = false) {
   if (stopped) return Promise.reject(new Error(STOPPED));
   if (browsers.has(id)) return Promise.resolve(browsers.get(id));
   if (launching.has(id)) return launching.get(id);
-  const work = launch(home, id, kind, version, cdpPort).finally(() => launching.delete(id));
+  const work = launch(home, id, kind, version, cdpPort, engine, sessionWindows).finally(() => launching.delete(id));
   launching.set(id, work);
   return work;
 }
@@ -251,7 +454,7 @@ async function serve(options) {
   commands.on("line", async (line) => {
     switch (line.trim()) {
       case "claude":
-        browser(options.home, "claude", "claude", GLANCE_PINS.playwrightCore, cdpPort).catch((error) =>
+        browser(options.home, "claude", "claude", GLANCE_PINS.playwrightCore, cdpPort, options.engine, options.sessionWindows).catch((error) =>
           emit(error.message === STOPPED ? { event: "stopped" } : { event: "error", message: error.message }),
         );
         break;

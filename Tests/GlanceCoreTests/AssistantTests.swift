@@ -29,6 +29,15 @@ import Testing
     #expect(!AssistantPolicy.allowedTools.contains("mcp__glance__start_session"))
   }
 
+  /// The user's own to-dos and notes, kept on this Mac: asking for one is the whole point, so no card.
+  @Test func captureToolsPassWithoutACard() {
+    for tool in ["todos", "add_todo", "complete_todo", "notes", "add_note", "append_to_note"] {
+      #expect(!AssistantPolicy.needsConfirmation(tool: "mcp__glance__\(tool)"))
+      #expect(AssistantPolicy.allowedTools.contains("mcp__glance__\(tool)"))
+    }
+    #expect(AssistantPrompt.claudeMD.contains("to-dos and notes"))
+  }
+
   @Test func compoundAndCamelCaseToolNamesAskWhenTheyAct() {
     for name in ["write_query", "mark_read", "update_view", "get_and_delete", "find_or_create_issue",
                  "search_and_replace", "read_and_send", "listSend", "getOrCreateX", "findOrCreateIssue",

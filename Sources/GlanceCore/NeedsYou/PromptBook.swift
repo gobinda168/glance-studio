@@ -20,17 +20,20 @@ public struct PendingPrompt: Equatable, Identifiable, Sendable {
   public let call: ToolCall
   public var screen: DialogScreen
   public let created: Date
+  /// The transcript the waiting call came from: its name is the session's id (nil when not known).
+  public let transcript: String?
 
   public var id: String { surface }
   public var kind: PromptKind { PromptKind(tool: call.name) }
   public var project: String { (cwd as NSString).lastPathComponent }
 
-  public init(surface: String, cwd: String, call: ToolCall, screen: DialogScreen, created: Date) {
+  public init(surface: String, cwd: String, call: ToolCall, screen: DialogScreen, created: Date, transcript: String? = nil) {
     self.surface = surface
     self.cwd = cwd
     self.call = call
     self.screen = screen
     self.created = created
+    self.transcript = transcript
   }
 }
 
@@ -100,7 +103,7 @@ public struct PromptBook: Equatable, Sendable {
       return before != nil
     }
     let created = before?.call.id == wait.call.id ? before?.created ?? now : now
-    let prompt = PendingPrompt(surface: surface, cwd: cwd, call: wait.call, screen: dialog, created: created)
+    let prompt = PendingPrompt(surface: surface, cwd: cwd, call: wait.call, screen: dialog, created: created, transcript: wait.file)
     prompts[surface] = prompt
     return before != prompt
   }

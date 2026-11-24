@@ -20,6 +20,7 @@ struct OverviewPage: View {
         VStack(alignment: .leading, spacing: 16) {
             ClaudeReadCard(controller: controller, read: entry.read)
             DescriptionCard(controller: controller, page: page, entry: entry)
+            ProofCard(page: page, root: controller.root, key: controller.key)
             ActivityList(controller: controller, page: page, entry: entry)
             AskClaudeCard(controller: controller, ask: entry.ask)
             Composer(controller: controller, page: page, entry: entry)

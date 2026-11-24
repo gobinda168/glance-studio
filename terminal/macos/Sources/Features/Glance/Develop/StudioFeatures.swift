@@ -37,6 +37,7 @@ final class StudioFeatures: ObservableObject {
         enabled = Feature.enabled(development: isDevelopment, choices: Self.savedChoices())
         Prefs.summariesOn = isOn(.summaries)
         SidebarModeModel.shared.featuresChanged()
+        if feature == .worktrees || feature == .commandCenter { WorktreeTracking.sync() }
         if feature == .browser && isOn(.browser) { BrowserApps.shared.start() }
         if feature == .journal { isOn(.journal) ? JournalService.shared.start() : JournalService.shared.stop() }
         if feature == .usage { isOn(.usage) ? UsageService.shared.start() : UsageService.shared.stop() }
@@ -56,6 +57,11 @@ final class StudioFeatures: ObservableObject {
             isOn(.orbChannel) ? OrbChannelStudio.start() : OrbChannelStudio.stop()
             GlanceTerminalHost.shared.refreshFnMonitor()
         }
+        if feature == .commandCenter && !isOn(.commandCenter) { GlanceMode.commandCenterSwitchedOff() }
+        if feature == .browserColumn && !isOn(.browserColumn) { BrowserColumn.featureSwitchedOff() }
+        // Command Center's session windows: on starts listening and tells the wrappers; off only stops telling them,
+        // because dropping a connection would close windows a session is using.
+        if feature == .commandCenter { AgentBrowserSessions.shared.start() }
         if feature == .needsYou { isOn(.needsYou) ? NeedsYouStudio.shared.start() : NeedsYouStudio.shared.stop() }
     }
 

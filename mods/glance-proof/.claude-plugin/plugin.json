@@ -1,0 +1,6 @@
+{
+  "name": "glance-proof",
+  "version": "0.1.0",
+  "description": "Proof of work for Glance Studio's Command Center: set up a project's checks and record how work was tested",
+  "author": { "name": "Gobinda Das" }
+}

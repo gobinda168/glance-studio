@@ -26,6 +26,7 @@ enum StripSwitch {
         }
         switch mode {
         case .terminal: TabSidebarModel.shared.newTab(near: window)
+        case .command: _ = CommandTabController.open(from: window)
         case .editor: _ = EditorStartTab.open(from: window)
         case .browser: _ = BrowserTabController.open(url: nil, from: window)
         case .captures: _ = CapturesTabController.open(from: window)
@@ -36,6 +37,7 @@ enum StripSwitch {
         case .notifications: _ = NotificationsTabController.open(from: window)
         case .settings: _ = SettingsTabController.open(from: window)
         case .pullRequests, .tools: break // the side bar only
+        case .worktrees: break // the side bar only
         case .automations, .agents, .mods: break // above
         }
     }

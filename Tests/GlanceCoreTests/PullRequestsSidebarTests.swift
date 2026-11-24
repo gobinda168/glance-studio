@@ -39,10 +39,10 @@ private let merged = PullRequests.PullRequest(number: 47, title: "Changes view",
   let board = PullRequests.Board(repository: "o/r", waitingOnYou: [], yours: [failing, passing, draft],
                                  recentlyMerged: [merged])
   #expect(PullRequests.tabs(board, filter: .init())
-    == [.init(list: .waitingOnYou, count: 0), .init(list: .yours, count: 3), .init(list: .recentlyMerged, count: 1)])
-  #expect(PullRequests.tabs(board, filter: .init(text: "mira")).map(\.count) == [0, 1, 0])
-  #expect(PullRequests.tabs(board, filter: .init(failingOnly: true)).map(\.count) == [0, 2, 0])
-  #expect(PullRequests.List.allCases.map(\.title) == ["To review", "Yours", "Merged"])
+    == [.init(list: .yours, count: 3), .init(list: .waitingOnYou, count: 0), .init(list: .recentlyMerged, count: 1)])
+  #expect(PullRequests.tabs(board, filter: .init(text: "mira")).map(\.count) == [1, 0, 0])
+  #expect(PullRequests.tabs(board, filter: .init(failingOnly: true)).map(\.count) == [2, 0, 0])
+  #expect(PullRequests.List.allCases.map(\.title) == ["Yours", "To review", "Merged"])
 }
 
 @Test func anEmptyTabSaysWhy() {

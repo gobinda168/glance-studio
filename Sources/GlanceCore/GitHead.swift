@@ -14,6 +14,11 @@ public enum GitHead {
     return text.count >= 7 && text.allSatisfy(\.isHexDigit) ? String(text.prefix(7)) : nil
   }
 
+  /// Whether a name from `branch(fromHead:)` is a detached HEAD's short hash rather than a branch.
+  public static func looksDetached(_ name: String) -> Bool {
+    name.count == 7 && name.allSatisfy(\.isHexDigit)
+  }
+
   /// The branch of the repo that contains `folder`, or nil outside a repo or when HEAD can't be read. A worktree or
   /// submodule has a `.git` *file* saying `gitdir: <path>`; the path may be absolute or relative to the repo root.
   public static func branch(inFolder folder: String, home: String = NSHomeDirectory()) -> String? {

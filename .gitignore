@@ -15,3 +15,5 @@ scripts/release.env
 .impeccable/config.local.json
 # LLVM coverage output from instrumented test runs.
 *.profraw
+# Make explainer's skill reads a copy of the design tokens, made by scripts/build-terminal.sh.
+mods/glance-proof/skills/glance-explainer/tokens.css

@@ -2,7 +2,7 @@ import Foundation
 import GlanceCore
 
 /// One Chrome DevTools Protocol connection to a browser (flat sessions: a page's commands carry its `sessionId`). For
-/// Glance browser panel: target discovery, screencast frames, input, viewport and screenshots.
+/// Studio, which follows the Glance browser's pages (target discovery).
 @MainActor
 public final class CDPClient {
   public enum Failure: LocalizedError {

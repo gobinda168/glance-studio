@@ -24,6 +24,29 @@ final class NeedsYouStudio {
 
     var prompts: [PendingPrompt] { book.ordered }
 
+    /// The prompt waiting in this split, if any (the Glance view shows it as a card).
+    func prompt(forSurface surface: UUID) -> PendingPrompt? { prompts.first { $0.surface == surface.uuidString } }
+
+    /// An answer picked in the Glance view: same checks and keys as a card's answer. It has no `beforeEnter`: this view's
+    /// answers include ticks, notes and Submit, which have no row to compare, and a Claude stalled past the board's half
+    /// second still answers correctly here, as the keys queue in order.
+    func answerFromGlance(_ prompt: PendingPrompt, _ answer: PromptAnswer) { self.answer(prompt, answer) }
+
+    /// An answer picked on the board: `beforeEnter` is asked just before Enter and can make it wait or stop it, and `done`
+    /// says whether the answer's keys really all went.
+    func answerFromBoard(_ prompt: PendingPrompt, _ answer: PromptAnswer, beforeEnter: @escaping () -> BoardPromptGuard.EnterGate,
+                         done: @escaping (Bool) -> Void) {
+        self.answer(prompt, answer, beforeEnter: beforeEnter, done: done)
+    }
+
+    /// This session has a tool call just made that may open a dialog (`BoardReply.callJustStarted`).
+    func callJustStarted(session: String) -> Bool {
+        BoardReply.callJustStarted(waiting: book.waiting, session: session, now: Date())
+    }
+
+    /// Reads the splits now, rather than at the next poll. Never call it from inside a Ghostty callback.
+    func refresh() { check() }
+
     func start() {
         guard StudioFeatures.shared.isOn(.needsYou), !running else { return }
         running = true
@@ -122,6 +145,8 @@ final class NeedsYouStudio {
         NeedsYouCards.update(prompts)
         OrbAttention.setPrompt(prompts.first.map(NeedsYouRules.caption))
         NeedsYouOrb.shared.update(pending: !prompts.isEmpty)
+        // Every caller publishes only when the ordered list changed, so this isn't the 0.5 s poll's noise.
+        NotificationCenter.default.post(name: .glancePromptsChanged, object: nil)
         let old = Set(previous.map(Self.key))
         for prompt in prompts where !old.contains(Self.key(prompt)) {
             if prompt.kind == .permission {
@@ -154,23 +179,32 @@ final class NeedsYouStudio {
 
     /// Spec §4: re-read the screen, and type only if the same dialog is still on it, and no answer for it is still
     /// on its way (one answer per screen: a multi-select's toggles go one at a time, each once the box shows it).
-    private func answer(_ prompt: PendingPrompt, _ answer: PromptAnswer) {
-        guard running else { return }
+    private func answer(_ prompt: PendingPrompt, _ answer: PromptAnswer, beforeEnter: (() -> BoardPromptGuard.EnterGate)? = nil,
+                        done: ((Bool) -> Void)? = nil) {
+        guard running else {
+            done?(false)
+            return
+        }
         let key = Self.key(prompt)
         guard let view = view(prompt.surface), let text = SurfaceScreen.visibleText(view),
               let now = PromptScreen.parse(text), PromptKeys.sameDialog(now, prompt.screen) else {
             NeedsYouCards.answeredElsewhere(prompt.surface)
             check()
+            done?(false)
             return
         }
-        if let sent = inFlight[key], !Self.landed(sent, screen: now, now: Date()) { return }
+        if let sent = inFlight[key], !Self.landed(sent, screen: now, now: Date()) {
+            done?(false)
+            return
+        }
         // Keys from the screen as it is now: the selection may have moved since the card was drawn.
         guard let keys = PromptKeys.keys(answer, kind: prompt.kind, screen: now) else {
             NSLog("Glance Studio: no keys for a prompt answer on this screen; leaving it to the terminal")
             NeedsYouCards.answeredElsewhere(prompt.surface)
+            done?(false)
             return
         }
-        let duration = SurfaceScreen.send(keys, to: view)
+        let duration = SurfaceScreen.send(keys, to: view, beforeEnter: beforeEnter, finished: done)
         inFlight[key] = Sent(screen: now, typed: Date().addingTimeInterval(duration))
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             MainActor.assumeIsolated { NeedsYouStudio.shared.check() }

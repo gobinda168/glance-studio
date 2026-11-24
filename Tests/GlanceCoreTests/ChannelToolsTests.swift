@@ -6,10 +6,10 @@ import Testing
     ChannelTools.parse(name: name, arguments: args, assistant: assistant)
   }
 
-  @Test func sessionsSeeNineTools() {
+  @Test func sessionsSeeTheirToolsAndTheCaptureTools() {
     #expect(ChannelTools.definitions(assistant: false).compactMap { $0["name"]?.string }
-      == ["nudge", "ask", "check_answer", "speak", "tell", "status", "dismiss", "secrets_list",
-          "http_request"])
+      == ["nudge", "ask", "check_answer", "speak", "tell", "status", "dismiss", "todos", "add_todo",
+          "complete_todo", "notes", "add_note", "append_to_note", "secrets_list", "http_request"])
     for tool in ChannelTools.definitions(assistant: false) {
       #expect(tool["inputSchema"]?["type"] == "object")
       #expect(tool["description"]?.string?.isEmpty == false)
@@ -72,7 +72,8 @@ import Testing
 
   @Test func assistantToolsOnlyInAssistantMode() {
     let names = ChannelTools.definitions(assistant: true).compactMap { $0["name"]?.string }
-    #expect(names == ["nudge", "ask", "check_answer", "speak", "tell", "status", "dismiss", "approve", "notifications",
+    #expect(names == ["nudge", "ask", "check_answer", "speak", "tell", "status", "dismiss", "todos", "add_todo",
+                      "complete_todo", "notes", "add_note", "append_to_note", "approve", "notifications",
                       "calendar", "sessions", "meeting_notes", "tickets", "open", "message_session", "start_session"])
     // The secrets tools are for sessions only in S1: neither listed nor callable by the assistant.
     #expect(!names.contains("secrets_list") && !names.contains("http_request"))
@@ -90,6 +91,42 @@ import Testing
       == .success(.messageSession(session: "glance", text: "run lint")))
     #expect(parse("start_session", ["folder": "~/Code/glance", "prompt": "fix the test"], assistant: true)
       == .success(.startSession(folder: "~/Code/glance", prompt: "fix the test")))
+  }
+
+  @Test func captureToolsCheckTheirArgumentsInBothModes() {
+    for assistant in [false, true] {
+      #expect(parse("todos", [:], assistant: assistant) == .success(.todos(group: nil, includeDone: false)))
+      #expect(parse("todos", ["group": " Work ", "include_done": true], assistant: assistant)
+        == .success(.todos(group: "Work", includeDone: true)))
+      #expect(parse("add_todo", ["text": " Reply to Ankit ", "group": "Work", "notes": "ECI first"], assistant: assistant)
+        == .success(.addTodo(text: "Reply to Ankit", group: "Work", notes: "ECI first")))
+      #expect(parse("add_todo", ["text": "Call"], assistant: assistant)
+        == .success(.addTodo(text: "Call", group: nil, notes: nil)))
+      #expect(parse("complete_todo", ["id": "A1"], assistant: assistant) == .success(.completeTodo(id: "A1")))
+      #expect(parse("notes", [:], assistant: assistant) == .success(.notes(query: nil)))
+      #expect(parse("notes", ["query": "sumo"], assistant: assistant) == .success(.notes(query: "sumo")))
+      #expect(parse("add_note", ["title": "Sumo", "text": "PNG first"], assistant: assistant)
+        == .success(.addNote(title: "Sumo", text: "PNG first")))
+      #expect(parse("add_note", ["text": "PNG first"], assistant: assistant)
+        == .success(.addNote(title: "", text: "PNG first")))
+      #expect(parse("append_to_note", ["id": "N1", "text": "HAR later"], assistant: assistant)
+        == .success(.appendToNote(id: "N1", text: "HAR later")))
+    }
+    #expect(parse("add_todo", [:]) == .failure(.init("text is required.")))
+    #expect(parse("add_todo", ["text": .string(String(repeating: "a", count: 501))])
+      == .failure(.init("text takes at most 500 characters; put the rest in notes.")))
+    #expect(parse("todos", ["include_done": "yes"]) == .failure(.init("include_done must be true or false.")))
+    #expect(parse("complete_todo", [:]) == .failure(.init("id is required.")))
+    #expect(parse("add_note", ["title": "Only a title"]) == .success(.addNote(title: "Only a title", text: "")))
+    #expect(parse("add_note", [:]) == .failure(.init("add_note needs a title or text.")))
+    #expect(parse("add_note", ["text": .string(String(repeating: "a", count: 100_001))])
+      == .failure(.init("text takes at most 100000 characters.")))
+    #expect(parse("append_to_note", ["id": "N1"]) == .failure(.init("text is required.")))
+  }
+
+  @Test func theServerTellsSessionsWhereToDosAndNotesGo() {
+    #expect(MCP.instructions.contains("add_todo"))
+    #expect(MCP.instructions.contains("add_note"))
   }
 
   @Test func secretsListTakesNothing() {

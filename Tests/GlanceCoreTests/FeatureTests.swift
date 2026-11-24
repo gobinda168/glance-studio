@@ -2,13 +2,13 @@ import Testing
 @testable import GlanceCore
 
 private let everyFeature: Set<Feature> = [.browser, .agents, .automations, .tools, .journal, .cloud, .notifications, .usage, .meetingNotes, .tickets,
-        .orbChannel, .needsYou, .secrets, .tabGroups, .summaries, .gsCode]
+        .orbChannel, .needsYou, .secrets, .tabGroups, .summaries, .gsCode, .worktrees, .commandCenter, .explainerMode, .browserColumn]
 
-private let everyGAFeature = everyFeature.subtracting([.gsCode])
+private let everyGAFeature = everyFeature.subtracting([.gsCode, .worktrees, .commandCenter, .explainerMode, .browserColumn])
 
-@Test func everyFeatureButGSCodeIsGA() {
-  #expect(Feature.allCases.filter { !$0.isGA } == [.gsCode])
-  #expect(Feature.unreleased == [.gsCode])
+@Test func everyFeatureButGSCodeAndWorktreesIsGA() {
+  #expect(Feature.allCases.filter { !$0.isGA } == [.gsCode, .worktrees, .commandCenter, .explainerMode, .browserColumn])
+  #expect(Feature.unreleased == [.gsCode, .worktrees, .commandCenter, .explainerMode, .browserColumn])
 }
 
 @Test func aReleaseBuildHasEveryGAFeature() {
@@ -21,7 +21,7 @@ private let everyGAFeature = everyFeature.subtracting([.gsCode])
 @Test func aDevelopmentBuildHasEveryGAFeatureWhateverTheMenuSays() {
   #expect(Feature.enabled(development: true, choices: [:]) == everyFeature)
   #expect(Feature.enabled(development: true, choices: [.browser: false, .journal: false]) == everyFeature)
-  #expect(Feature.enabled(development: true, choices: [.agents: false, .tools: false, .gsCode: false]) == everyGAFeature)
+  #expect(Feature.enabled(development: true, choices: [.agents: false, .tools: false, .gsCode: false]) == everyGAFeature.union([.worktrees, .commandCenter, .explainerMode, .browserColumn]))
 }
 
 @Test func aGAFeatureIsOnInEveryBuildWhateverTheMenuSays() {
@@ -35,7 +35,7 @@ private let everyGAFeature = everyFeature.subtracting([.gsCode])
 @Test func everyFeatureHasATitle() {
   #expect(Feature.allCases.map(\.title)
     == ["Browser", "Agents", "Automations", "Tools", "Journal", "Glance Cloud", "Notifications", "Usage",
-        "Meeting Notes", "Tickets", "Orb Channel", "Claude Needs You", "Secrets", "Tab Groups", "Summaries", "GS Code"])
+        "Meeting Notes", "Tickets", "Orb Channel", "Claude Needs You", "Secrets", "Tab Groups", "Summaries", "GS Code", "Worktrees", "Command Center", "Explainer Mode", "Browser Column"])
 }
 
 @Test func aSwitchSavedForChatsOrJiraAndConfluenceCountsForTheBrowser() {

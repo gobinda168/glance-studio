@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "environments": [
+    { "name": "Local", "url": "http://localhost", "match": ["localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*"] }
+  ],
+  "checks": [
+    { "name": "Focused tests", "match": "(scripts/build\\.sh test|swift test)\\b.*--filter", "env": "Local" },
+    { "name": "Full tests", "match": "(scripts/build\\.sh test|swift test)\\b", "env": "Local" },
+    { "name": "Build", "match": "scripts/build-terminal\\.sh\\b", "env": "Local" },
+    { "name": "Browser tools", "match": "node --test\\b.*agent-browser/", "env": "Local" },
+    { "name": "Mods", "match": "claude plugin test\\b", "env": "Local" },
+    { "name": "VS Code extension", "match": "^npm (run )?test\\b", "env": "Local" }
+  ],
+  "required": ["Build@Local"]
+}

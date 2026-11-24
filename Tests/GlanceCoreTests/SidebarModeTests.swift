@@ -11,7 +11,7 @@ import Testing
                                                                        .pullRequests, .captures, .mods])
   #expect(SidebarMode.stripModes(enabled: [.journal]) == [.terminal, .editor, .pullRequests, .captures, .journal, .mods])
   #expect(SidebarMode.allCases
-    == [.terminal, .editor, .browser, .agents, .automations, .pullRequests, .captures, .tickets,
+    == [.terminal, .command, .editor, .browser, .agents, .automations, .pullRequests, .worktrees, .captures, .tickets,
         .journal, .meetings, .usage, .tools, .mods, .notifications, .settings])
   #expect(SidebarMode.settings.title == "Settings")
 }
@@ -50,7 +50,7 @@ import Testing
 
 @Test func everyModeHasItsCanvasIcon() {
   #expect(SidebarMode.allCases.map(\.icon)
-    == [.terminal, .editor, .globe, .agents, .automations, .pullRequest, .notes, .checklist, .journal,
+    == [.terminal, .board, .editor, .globe, .agents, .automations, .pullRequest, .branch, .notes, .checklist, .journal,
         .mic, .chart, .tools, .puzzle, .bell, .settings])
   #expect(SidebarMode.allCases.allSatisfy { !StudioIcons.shapes($0.icon).isEmpty })
 }

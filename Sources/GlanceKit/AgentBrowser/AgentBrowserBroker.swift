@@ -5,7 +5,7 @@ import Network
 
 /// Glance browser (spec 2026-10-14-agent-browser-design.md), Studio's side of the broker: two fixed loopback ports
 /// (Playwright clients and CDP) whose first connection starts `agent-browser.mjs` with the user's node, the broker's
-/// browsers for the panel to watch, Stop / Continue, and quitting after 5 idle minutes.
+/// browsers (real Chromium windows) and their pages, Stop / Continue, and quitting after 5 idle minutes.
 @MainActor
 public final class AgentBrowserBroker: ObservableObject {
   public static let shared = AgentBrowserBroker()
@@ -26,16 +26,28 @@ public final class AgentBrowserBroker: ObservableObject {
     public let kind: AgentBrowserEvent.Kind
     public let version: String
     public let cdpPort: Int
+    /// The Chromium process, whose window "Show Glance Browser" brings forward.
+    public let pid: Int32
   }
 
   @Published public private(set) var state: State = .off
   @Published public private(set) var browsers: [Browser] = []
   @Published public private(set) var ports: AgentBrowserPorts.Pair?
 
-  /// Whether something still wants the broker (the panel is shown, a page is open): no idle quit while true.
+  /// Whether something still wants the broker (a page is open): no idle quit while true.
   public var keepAlive: () -> Bool = { false }
   /// Settings → Browser → "Quit the browser after 5 minutes idle".
   public var quitsWhenIdle = true
+  /// Settings → Browser → "Claude's browser": a change quits the broker, so the next use starts the new engine.
+  public var engine: AgentBrowserEngine = .chromium {
+    didSet {
+      guard engine != oldValue else { return }
+      quit()
+      onEngineChanged?(engine)
+    }
+  }
+  /// Studio: the engine changed (the panel's browser row appears only with Chromium, which has windows).
+  public var onEngineChanged: ((AgentBrowserEngine) -> Void)?
 
   private let home = AgentBrowserPackages.folder(home: NSHomeDirectory())
   private var clientRelay: AgentBrowserRelay?
@@ -47,6 +59,8 @@ public final class AgentBrowserBroker: ObservableObject {
   private var readyWaiters: [CheckedContinuation<Bool, Never>] = []
   private var claudeWaiters: [CheckedContinuation<Int?, Never>] = []
   private var starting = false
+  /// Whether the running broker was started with `--session-windows`: the startup sweep trusts that, not the live flag.
+  public private(set) var launchedWithSessionWindows = false
   private var quitting = false
   private var idleSince: Date?
   private var idleTimer: Timer?
@@ -140,7 +154,7 @@ public final class AgentBrowserBroker: ObservableObject {
     }
   }
 
-  /// Opens the Glance browser without a client (the panel's Restart, or showing the panel with nothing running).
+  /// Opens the Glance browser without a client ("Show Glance Browser" with nothing running).
   public func start() {
     Task { if await ensureRunning() { _ = await claudeBrowser() } }
   }
@@ -164,7 +178,10 @@ public final class AgentBrowserBroker: ObservableObject {
     guard let node else { return fail(NodeLocator.missing) }
     let process = Process()
     process.executableURL = URL(fileURLWithPath: node.node)
-    process.arguments = [script, "--home", home]
+    process.arguments = [script, "--home", home, "--engine", engine.rawValue]
+    // Command Center: a window for each Claude session needs Chromium to keep painting windows other windows cover.
+    let sessionWindows = AgentBrowserSessions.shared.sessionWindows
+    if sessionWindows { process.arguments?.append("--session-windows") }
     var environment = ProcessInfo.processInfo.environment
     environment["PATH"] = node.path
     environment.removeValue(forKey: "NODE_OPTIONS")
@@ -191,6 +208,7 @@ public final class AgentBrowserBroker: ObservableObject {
       return fail("The Glance browser couldn't start: \(error.localizedDescription)")
     }
     self.process = process
+    launchedWithSessionWindows = sessionWindows
     self.input = input.fileHandleForWriting
   }
 
@@ -212,9 +230,9 @@ public final class AgentBrowserBroker: ObservableObject {
       resumeReady(true)
     case .installing(let what):
       state = .installing(what)
-    case .browser(let id, let kind, let version, let port):
+    case .browser(let id, let kind, let version, let port, let pid):
       browsers.removeAll { $0.id == id }
-      browsers.append(Browser(id: id, kind: kind, version: version, cdpPort: port))
+      browsers.append(Browser(id: id, kind: kind, version: version, cdpPort: port, pid: pid))
       state = .running
       if kind == .claude { resumeClaude(port) }
     case .browserGone(let id):
@@ -235,6 +253,7 @@ public final class AgentBrowserBroker: ObservableObject {
     guard finished === process else { return }
     process = nil
     input = nil
+    launchedWithSessionWindows = false
     brokerPorts = nil
     browsers = []
     starting = false
@@ -275,7 +294,7 @@ public final class AgentBrowserBroker: ObservableObject {
     try? input?.write(contentsOf: Data((command + "\n").utf8))
   }
 
-  // MARK: The panel's buttons
+  // MARK: Stop, resume, quit
 
   /// Closes every browser; Claude's next call and new test runs fail with `stoppedText` until `resume()`.
   public func stop() {

@@ -344,17 +344,15 @@ struct ChannelCardView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       header
-      Text(card.title)
-        .font(GlanceFont.sans(13, .semibold))
-        .foregroundStyle(GlanceColor.ink)
-        .lineLimit(3)
-        .fixedSize(horizontal: false, vertical: true)
-      if let body = card.body {
-        Text(body)
-          .font(GlanceFont.sans(12))
-          .foregroundStyle(GlanceColor.body)
-          .lineLimit(4)
-          .fixedSize(horizontal: false, vertical: true)
+      CardMessage {
+        Text(card.title)
+          .font(GlanceFont.sans(13, .semibold))
+          .foregroundStyle(GlanceColor.ink)
+        if let body = card.body {
+          Text(body)
+            .font(GlanceFont.sans(12))
+            .foregroundStyle(GlanceColor.body)
+        }
       }
       if card.stoppedWaiting {
         Text("Claude stopped waiting — answer anyway")

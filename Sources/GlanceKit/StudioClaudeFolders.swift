@@ -1,19 +1,41 @@
 import Foundation
 import GlanceCore
 
-/// Studio's per-launch Claude Code folders in Caches (`~/Library/Caches/Glance Studio`): `session-links` (emptied each
-/// launch: no `claude` outlives Studio's shells) and `plugins/glance-humanize` (written fresh from styles/humanize.md).
-/// Prepared in main.swift before the first shell starts.
+/// Studio's per-launch Claude Code folders in Caches (`~/Library/Caches/Glance Studio`): `session-links-<pid>` (one per
+/// running Studio, new each launch: no `claude` outlives Studio's shells) and `plugins/glance-humanize` (written fresh
+/// from styles/humanize.md). Prepared in main.swift before the first shell starts.
 public enum StudioClaudeFolders {
   static let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
     .appendingPathComponent("Glance Studio")
-  public static let linksFolder = base.appendingPathComponent("session-links")
+  private static let linksPrefix = "session-links-"
+  public static let linksFolder = linksFolder(in: base, pid: ProcessInfo.processInfo.processIdentifier)
   nonisolated(unsafe) public private(set) static var humanizeDir: URL?
+
+  /// This launch's links folder, empty. A folder another running Studio holds is left alone: removing it would leave
+  /// that Studio watching a deleted folder. Only the folders of Studios that are gone are swept.
+  @discardableResult
+  static func prepareLinksFolder(in base: URL, pid: Int32, isAlive: (Int32) -> Bool) -> URL {
+    let fm = FileManager.default
+    for name in (try? fm.contentsOfDirectory(atPath: base.path)) ?? [] where name.hasPrefix(linksPrefix) {
+      guard let owner = Int32(name.dropFirst(linksPrefix.count)), owner == pid || !isAlive(owner) else { continue }
+      try? fm.removeItem(at: base.appendingPathComponent(name))
+    }
+    let folder = linksFolder(in: base, pid: pid)
+    try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
+    return folder
+  }
+
+  private static func linksFolder(in base: URL, pid: Int32) -> URL {
+    base.appendingPathComponent(linksPrefix + String(pid))
+  }
+
+  private static func isRunning(_ pid: Int32) -> Bool {
+    kill(pid, 0) == 0 || errno == EPERM
+  }
 
   public static func prepare() {
     let fm = FileManager.default
-    try? fm.removeItem(at: linksFolder)
-    try? fm.createDirectory(at: linksFolder, withIntermediateDirectories: true)
+    prepareLinksFolder(in: base, pid: ProcessInfo.processInfo.processIdentifier, isAlive: isRunning)
     let plugin = base.appendingPathComponent("plugins/\(HumanizePlugin.name)")
     try? fm.removeItem(at: plugin)
     guard let style = try? String(contentsOf: Resources.outputStyle, encoding: .utf8) else { return }

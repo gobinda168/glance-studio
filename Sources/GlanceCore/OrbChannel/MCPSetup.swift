@@ -28,7 +28,7 @@ public enum MCPSetup {
 }
 
 /// Registers `glance agent-browser mcp` as the "glance-browser" MCP server (spec 2026-10-14-agent-browser-design.md):
-/// the Playwright MCP on the Glance browser, which Studio shows in a floating panel.
+/// the Playwright MCP on the Glance browser, a Chromium window Studio runs.
 public enum BrowserMCPSetup {
   public static let name = "glance-browser"
 

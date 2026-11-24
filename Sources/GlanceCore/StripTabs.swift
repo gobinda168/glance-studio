@@ -9,6 +9,7 @@ extension SidebarMode {
     guard let kind else { return .terminal }
     switch kind {
     case "home": return .terminal
+    case "command": return .command
     case "razor", "studio", "editorStart": return .editor
     case "browser": return .browser
     case "pullRequest", "newPullRequest", "reviewInbox": return .pullRequests
@@ -24,6 +25,17 @@ extension SidebarMode {
     case "settings": return .settings
     default: return nil
     }
+  }
+
+  /// `owner(ofTabKind:)` for a window that knows `Feature.commandCenter`: a worktree page opens from a Command worktree
+  /// row, so while Command is on the strip item goes back to it. With Command off it belongs to no item, as before.
+  ///
+  /// `showingRecap`: the tab is a terminal tab whose Glance view shows a finished worktree's recap. It was opened from Command
+  /// and belongs there for as long as it shows the recap; once a session starts in it, it is a terminal tab again.
+  public static func owner(ofTabKind kind: String?, commandCenter: Bool, showingRecap: Bool = false) -> SidebarMode? {
+    if commandCenter, kind == "worktree" { return .command }
+    if commandCenter, kind == nil, showingRecap { return .command }
+    return owner(ofTabKind: kind)
   }
 }
 

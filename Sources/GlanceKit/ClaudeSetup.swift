@@ -11,6 +11,8 @@ public enum ClaudeSetup {
     public let backup: URL
     public let notifyScript: URL
     public let statusScript: URL
+    /// The tracking hooks' wrapper around `glance track`.
+    public let trackScript: URL
     public let innerJSON: URL
     public let innerCommand: URL
     public let usage: URL
@@ -24,6 +26,7 @@ public enum ClaudeSetup {
       backup = claude.appendingPathComponent("settings.json.glance-backup")
       notifyScript = claude.appendingPathComponent("glance/notify.sh")
       statusScript = claude.appendingPathComponent("glance/statusline.sh")
+      trackScript = claude.appendingPathComponent("glance/track.sh")
       innerJSON = claude.appendingPathComponent("glance/statusline.inner.json")
       innerCommand = claude.appendingPathComponent("glance/statusline.inner")
       usage = claude.appendingPathComponent("glance/usage.json")
@@ -176,7 +179,7 @@ public enum ClaudeAutoSetup {
     ClaudeOneShot.locateWithPath { found in
       guard let found else { running = false; return } // no Claude Code yet: the next launch or onboarding tries again
       let glance = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/glance").path
-      DispatchQueue.global(qos: .utility).async {
+      ClaudeSettingsQueue.shared.async {
         let done = install(claude: found.executable, path: found.path, glance: glance)
         DispatchQueue.main.async {
           MainActor.assumeIsolated {

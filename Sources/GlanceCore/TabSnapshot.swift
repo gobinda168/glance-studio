@@ -54,6 +54,41 @@ public struct TabSnapshot: Codable, Equatable, Sendable {
 
   public var isEmpty: Bool { groups.allSatisfy { $0.tabs.isEmpty } }
 
+  /// What to open: one window per terminal window that came back (`isLive` says which, by surface ID), and every other tab
+  /// inside one of them, as a tab with no terminal of its own would otherwise come back as a window of its own, be saved
+  /// as one, and do so at every launch. Loose tabs join the window the user was in, else the first with a terminal, else
+  /// the first; one a window already has isn't added twice. The tab in front stays in front.
+  public func folded(isLive: (String) -> Bool) -> TabSnapshot {
+    let kept = groups.map { group -> Group in
+      var tabs: [Tab] = [], shown: Int?
+      for (index, tab) in group.tabs.enumerated() where !tab.isTerminal || (tab.surface.map(isLive) ?? false) {
+        if index == group.front { shown = tabs.count }
+        tabs.append(tab)
+      }
+      return Group(tabs: tabs, selected: shown)
+    }
+    let hasTerminal = kept.map { $0.tabs.contains(where: \.isTerminal) }
+    let wanted = frontGroup.flatMap { kept.indices.contains($0) && hasTerminal[$0] ? $0 : nil }
+    guard let target = wanted ?? hasTerminal.firstIndex(of: true) ?? kept.firstIndex(where: { !$0.tabs.isEmpty }) else {
+      return TabSnapshot(groups: [])
+    }
+    var home = kept[target]
+    for (index, group) in kept.enumerated() where index != target && !hasTerminal[index] {
+      for tab in group.tabs where !home.tabs.contains(tab) { home.tabs.append(tab) }
+      // The user was in this loose window: its tab in front is now the home window's.
+      if index == frontGroup, let shown = group.front, let at = home.tabs.firstIndex(of: group.tabs[shown]) {
+        home.selected = at
+      }
+    }
+    var result: [Group] = [], front: Int?, homeSlot = 0
+    for (index, group) in kept.enumerated() where index == target || hasTerminal[index] {
+      if index == target { homeSlot = result.count }
+      if index == frontGroup { front = result.count }
+      result.append(index == target ? home : group)
+    }
+    return TabSnapshot(groups: result, frontGroup: frontGroup == nil ? nil : front ?? homeSlot)
+  }
+
   public func encoded() -> Data? { try? JSONEncoder().encode(self) }
 
   /// The snapshot in `data`; nil for anything unreadable or from a version this one doesn't know.

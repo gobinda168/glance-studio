@@ -113,6 +113,14 @@ extension Ghostty {
             ghostty_surface_mouse_captured(surface)
         }
 
+        /// The running program has bracketed paste on, so `sendText` reaches it framed. Without it each newline in the
+        /// text becomes a carriage return, which a shell or a prompt takes as Return. It takes the surface lock, so never
+        /// call it from inside a Ghostty callback (like `SurfaceScreen.visibleText`).
+        @MainActor
+        var bracketedPaste: Bool {
+            ghostty_surface_bracketed_paste(surface)
+        }
+
         /// The PID of the foreground process group attached to the PTY.
         @MainActor
         var foregroundPID: Int? {

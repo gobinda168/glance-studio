@@ -5,6 +5,8 @@ import Foundation
 public enum AssistantPolicy {
   static let glanceReadTools = ["nudge", "ask", "check_answer", "speak", "tell", "status", "dismiss", "notifications",
                                 "calendar", "sessions", "meeting_notes", "tickets", "open"]
+  /// The user's own to-dos and notes, kept on this Mac: adding one is what they asked for, so these pass too.
+  static let glanceCaptureTools = ["todos", "add_todo", "complete_todo", "notes", "add_note", "append_to_note"]
   /// Built-in tools that pass without a card. Reading files and fetching pages go through Allow: a page or a file can
   /// carry instructions, and a fetch can carry data out.
   static let builtInReadTools = ["WebSearch", "TodoWrite"]
@@ -31,7 +33,7 @@ public enum AssistantPolicy {
   static let webWords: Set<String> = ["url", "urls", "http", "https", "web", "webpage", "browse"]
 
   /// Allowed without asking (`--allowedTools`).
-  public static let allowedTools = glanceReadTools.map { "mcp__glance__\($0)" } + builtInReadTools
+  public static let allowedTools = (glanceReadTools + glanceCaptureTools).map { "mcp__glance__\($0)" } + builtInReadTools
   public static let disallowedTools = ["Bash", "Edit", "Write", "MultiEdit", "NotebookEdit"]
 
   /// Whether a tool call needs the user's Allow: everything but Glance's reading tools, the two built-ins above, and a
@@ -42,7 +44,9 @@ public enum AssistantPolicy {
     let parts = tool.components(separatedBy: "__")
     guard parts.count >= 3, parts[0] == "mcp" else { return true }
     let name = parts[2...].joined(separator: "__")
-    if parts[1] == "glance" { return !glanceReadTools.contains(name) && name != "approve" }
+    if parts[1] == "glance" {
+      return !glanceReadTools.contains(name) && !glanceCaptureTools.contains(name) && name != "approve"
+    }
     let nameWords = words(of: name)
     let serverWords = Set(words(of: parts[1].replacingOccurrences(of: "claude_ai_", with: "")))
     guard let first = nameWords.first, nameWords != ["fetch"],
@@ -135,6 +139,8 @@ public enum AssistantPrompt {
     - If detail helps (a list, links, numbers), put it after a line containing only `---`. It's shown, not read.
     - Use the glance tools to see the user's notifications, calendar, meeting notes, tickets and Claude sessions, and
       to open things in Glance Studio.
+    - The user's to-dos and notes live in Glance: read them with todos and notes, and add to them with add_todo,
+      complete_todo, add_note and append_to_note when asked ("add that to my to-dos", "note this down").
     - Real work happens in the user's projects: start a Claude session there with start_session, or message one with
       message_session. You can't run shell commands or edit files yourself.
     - Anything that sends, changes or posts (a Slack message, a ticket move, a new session) is shown to the user to

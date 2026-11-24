@@ -1,4 +1,5 @@
 import Cocoa
+import GlanceCore // GLANCE: BrowserColumnSaved
 
 protocol TerminalRestorable: Codable {
     static var selfKey: String { get }
@@ -83,6 +84,15 @@ final class TerminalRestorableState: TerminalRestorable {
     // GLANCE: the split panes' names, order and layout.
     var glancePanes: PaneLayoutModel.Saved? {
         internalState.glancePanes
+    }
+    // GLANCE: the tab showed the Glance view.
+    var glanceMode: Bool? {
+        internalState.glanceMode
+    }
+
+    // GLANCE: the browser column.
+    var glanceBrowserColumn: BrowserColumnSaved? {
+        internalState.glanceBrowserColumn
     }
 
     /// Internal State we use to perform unit tests
@@ -185,6 +195,17 @@ class TerminalWindowRestoration: NSObject, NSWindowRestoration {
         // GLANCE: the panes' names, tab order and minimized panes wait for the window's view to sync.
         if let panes = state.glancePanes {
             MainActor.assumeIsolated { PaneLayoutModel.stage(panes, panes: c.surfaceTree.map(\.id)) }
+        }
+
+        // GLANCE: back in the Glance view if it was showing.
+        if state.glanceMode == true { MainActor.assumeIsolated { c.glanceMode = true } }
+        // GLANCE: the browser column's tabs come back parked; they load when the column shows.
+        if let column = state.glanceBrowserColumn {
+            MainActor.assumeIsolated {
+                guard StudioFeatures.shared.isOn(.browserColumn) else { return }
+                c.browserColumn.restore(column)
+                c.browserColumnOpen = column.open
+            }
         }
 
         // Setup our restored state on the controller

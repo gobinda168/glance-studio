@@ -145,8 +145,6 @@ struct PaneDock: View {
     }
 }
 
-/// The tabs view's bar: one chip per pane with its state, folder and command; the trailing button goes back to the
-/// split view.
 /// Where each tab sits in the bar, as laid out (before a drag's offset), in the bar's own coordinate space.
 private struct PaneTabFrames: PreferenceKey {
     static var defaultValue: [UUID: CGRect] = [:]
@@ -155,56 +153,96 @@ private struct PaneTabFrames: PreferenceKey {
     }
 }
 
-/// A tab held by the pointer: which one, where in the tab it was grabbed, and where the pointer is.
+/// A tab held by the pointer: which one, where in the tab it was grabbed, and where the pointer is, along the bar.
 private struct PaneTabDrag {
     let id: UUID
     let grab: CGFloat
-    var x: CGFloat
+    var at: CGFloat
 }
 
-/// The tabs view's bar. A tab drags like a macOS tab: it lifts under the pointer and follows it sideways, the others
-/// slide aside as it passes their middles, and on release it settles into its place.
+/// The tabs view's bar: one chip per pane with its state, folder and command, and buttons to move the bar to the other
+/// side and to go back to the split view. It runs across the top of the panes or, `vertical`, down their right side.
+/// A tab drags like a macOS tab: it lifts under the pointer and follows it along the bar, the others slide aside as it
+/// passes their middles, and on release it settles into its place.
 struct PaneTabBar: View {
     @ObservedObject var panes: PaneLayoutModel
     let tabs: [Ghostty.SurfaceView]
     let active: UUID?
+    let vertical: Bool
     let close: (Ghostty.SurfaceView) -> Void
 
     private static let space = "paneTabs"
     private static let spacing: CGFloat = 4
+    static let sideWidth: CGFloat = 210
 
+    @AppStorage(PaneLayoutModel.tabsOnRightKey) private var tabsOnRight = false
     @State private var frames: [UUID: CGRect] = [:]
     @State private var drag: PaneTabDrag?
     /// A drag's mouse-up isn't a click on the tab.
     @State private var suppressSelect = false
 
     var body: some View {
-        HStack(spacing: 4) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Self.spacing) {
-                    ForEach(tabs) { view in
-                        tab(view)
-                    }
+        if vertical {
+            VStack(spacing: 0) {
+                HStack(spacing: 2) {
+                    Text("Panes")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(StudioColors.muted)
+                        .padding(.leading, 4)
+                    Spacer(minLength: 0)
+                    buttons
                 }
-                .padding(.horizontal, 2)
-                .padding(.vertical, 4)
-                .coordinateSpace(name: Self.space)
-                .onPreferenceChange(PaneTabFrames.self) { frames = $0 }
+                .padding(.horizontal, 6)
+                .frame(height: 34)
+                .overlay(alignment: .bottom) { Rectangle().fill(StudioColors.line).frame(height: 1) }
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: Self.spacing) { list }
+                        .padding(6)
+                        .coordinateSpace(name: Self.space)
+                        .onPreferenceChange(PaneTabFrames.self) { frames = $0 }
+                }
+            }
+            .frame(width: Self.sideWidth)
+            .background(StudioColors.bar)
+            .overlay(alignment: .leading) { Rectangle().fill(StudioColors.line).frame(width: 1) }
+        } else {
+            HStack(spacing: 4) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Self.spacing) { list }
+                        .padding(.horizontal, 2)
+                        .padding(.vertical, 4)
+                        .coordinateSpace(name: Self.space)
+                        .onPreferenceChange(PaneTabFrames.self) { frames = $0 }
+                }
+                buttons
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 34)
+            .background(StudioColors.bar)
+            .overlay(alignment: .bottom) { Rectangle().fill(StudioColors.line).frame(height: 1) }
+        }
+    }
+
+    private var list: some View {
+        ForEach(tabs) { view in tab(view) }
+    }
+
+    private var buttons: some View {
+        HStack(spacing: 1) {
+            PaneIconButton(symbol: vertical ? "rectangle.topthird.inset.filled" : "sidebar.right",
+                           help: vertical ? "Show tabs on top" : "Show tabs on the right") {
+                withAnimation(PaneLayoutModel.animation) { tabsOnRight.toggle() }
             }
             PaneIconButton(symbol: "rectangle.split.2x1", help: "Back to split view") { panes.toggleTabs() }
         }
-        .padding(.horizontal, 8)
-        .frame(height: 34)
-        .background(StudioColors.bar)
-        .overlay(alignment: .bottom) { Rectangle().fill(StudioColors.line).frame(height: 1) }
     }
 
     private func tab(_ view: Ghostty.SurfaceView) -> some View {
         let lifted = drag?.id == view.id
-        return PaneTab(panes: panes, view: view, selected: view.id == active,
+        return PaneTab(panes: panes, view: view, selected: view.id == active, vertical: vertical,
                        select: { if !suppressSelect { panes.select(view) } }, close: { close(view) })
-            .offset(x: lifted ? liftedOffset : 0)
-            .scaleEffect(lifted ? 1.04 : 1)
+            .offset(x: lifted && !vertical ? liftedOffset : 0, y: lifted && vertical ? liftedOffset : 0)
+            .scaleEffect(lifted ? (vertical ? 1.02 : 1.04) : 1)
             .shadow(color: .black.opacity(lifted ? 0.28 : 0), radius: lifted ? 9 : 0, y: lifted ? 3 : 0)
             .zIndex(lifted ? 1 : 0)
             // After the offset, so it reports where the tab is laid out, not where it is held.
@@ -215,10 +253,15 @@ struct PaneTabBar: View {
             .gesture(dragGesture(view))
     }
 
+    /// A point's place along the bar, and a frame's leading edge and length along it.
+    private func along(_ point: CGPoint) -> CGFloat { vertical ? point.y : point.x }
+    private func lead(_ frame: CGRect) -> CGFloat { vertical ? frame.minY : frame.minX }
+    private func length(_ frame: CGRect) -> CGFloat { vertical ? frame.height : frame.width }
+
     /// How far the held tab is drawn from its slot, so it stays under the pointer while the slots change.
     private var liftedOffset: CGFloat {
         guard let drag, let frame = frames[drag.id] else { return 0 }
-        return drag.x - drag.grab - frame.minX
+        return drag.at - drag.grab - lead(frame)
     }
 
     private func dragGesture(_ view: Ghostty.SurfaceView) -> some Gesture {
@@ -230,10 +273,10 @@ struct PaneTabBar: View {
                     NSCursor.closedHand.push()
                     panes.select(view)
                     withAnimation(PaneLayoutModel.animation) {
-                        drag = PaneTabDrag(id: view.id, grab: value.startLocation.x - frame.minX, x: value.location.x)
+                        drag = PaneTabDrag(id: view.id, grab: along(value.startLocation) - lead(frame), at: along(value.location))
                     }
                 }
-                drag?.x = value.location.x
+                drag?.at = along(value.location)
                 reorder()
             }
             .onEnded { _ in
@@ -244,19 +287,20 @@ struct PaneTabBar: View {
             }
     }
 
-    /// Moves the held tab to the slot nearest it: the slots are laid out from the other tabs' widths, and the one whose
+    /// Moves the held tab to the slot nearest it: the slots are laid out from the other tabs' lengths, and the one whose
     /// leading edge is closest to the held tab's wins. It depends only on where the pointer is, so a quick flick or a
     /// pause before letting go still lands the tab where it's held, across as many tabs as it passed (one throttled swap
     /// per mouse move left it short of the ends).
     private func reorder() {
         // The model's order, not `tabs`: that one is a redraw behind right after a move.
         let order = panes.tabOrder.filter { frames[$0] != nil }
-        guard let drag, let index = order.firstIndex(of: drag.id), let start = order.compactMap({ frames[$0]?.minX }).min()
+        guard let drag, let index = order.firstIndex(of: drag.id),
+              let start = order.compactMap({ frames[$0].map(lead) }).min()
         else { return }
-        let leading = drag.x - drag.grab
+        let leading = drag.at - drag.grab
         var slot = start, best = 0, distance = abs(leading - start)
         for (offset, id) in order.filter({ $0 != drag.id }).enumerated() {
-            slot += (frames[id]?.width ?? 0) + Self.spacing
+            slot += (frames[id].map(length) ?? 0) + Self.spacing
             if abs(leading - slot) < distance { (best, distance) = (offset + 1, abs(leading - slot)) }
         }
         guard best != index else { return }
@@ -268,14 +312,16 @@ struct PaneTabBar: View {
 /// A tab's name while it is being edited: Return keeps it, Esc cancels, clicking away keeps it. An empty name goes
 /// back to the folder's.
 private struct PaneRenameField: View {
+    let maxWidth: CGFloat
     let commit: (String?) -> Void
 
     @State private var text: String
     @State private var finished = false
     @FocusState private var focused: Bool
 
-    init(initial: String, commit: @escaping (String?) -> Void) {
+    init(initial: String, maxWidth: CGFloat, commit: @escaping (String?) -> Void) {
         _text = State(initialValue: initial)
+        self.maxWidth = maxWidth
         self.commit = commit
     }
 
@@ -285,7 +331,7 @@ private struct PaneRenameField: View {
             .font(.system(size: 11.5, weight: .semibold))
             .foregroundStyle(StudioColors.ink)
             .focused($focused)
-            .frame(width: min(180, max(70, CGFloat(text.count) * 7.5 + 14)))
+            .frame(width: min(maxWidth, max(70, CGFloat(text.count) * 7.5 + 14)))
             .onSubmit { finish(text) }
             .onExitCommand { finish(nil) }
             .onChange(of: focused) { isFocused in if !isFocused { finish(text) } }
@@ -303,9 +349,12 @@ private struct PaneTab: View {
     @ObservedObject var panes: PaneLayoutModel
     let view: Ghostty.SurfaceView
     let selected: Bool
+    /// In the side bar: the row fills its width and Move Left/Right read Move Up/Down.
+    let vertical: Bool
     let select: () -> Void
     let close: () -> Void
 
+    @AppStorage(PaneLayoutModel.tabsOnRightKey) private var tabsOnRight = false
     @State private var hovering = false
 
     private var status: PaneLayoutModel.Status { panes.status(for: view.id) }
@@ -318,7 +367,7 @@ private struct PaneTab: View {
             HStack(spacing: 6) {
                 PaneDot(state: status.state)
                 if editing {
-                    PaneRenameField(initial: panes.names[view.id] ?? status.folder) {
+                    PaneRenameField(initial: panes.names[view.id] ?? status.folder, maxWidth: vertical ? 140 : 180) {
                         panes.finishRename(view, name: $0)
                     }
                 } else {
@@ -326,6 +375,7 @@ private struct PaneTab: View {
                         .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(selected ? StudioColors.ink : StudioColors.body)
                         .lineLimit(1)
+                        .layoutPriority(1)
                 }
                 if !status.command.isEmpty {
                     Text(status.command)
@@ -343,7 +393,8 @@ private struct PaneTab: View {
             }
             .padding(.leading, 9)
             .padding(.trailing, selected || hovering ? 4 : 9)
-            .frame(height: 26)
+            .frame(maxWidth: vertical ? .infinity : nil, alignment: .leading)
+            .frame(height: vertical ? 28 : 26)
             .contentShape(Rectangle())
             .onTapGesture { if !editing { select() } }
             .simultaneousGesture(TapGesture(count: 2).onEnded { panes.renaming = view.id })
@@ -371,8 +422,13 @@ private struct PaneTab: View {
                 Button("Reset Name") { panes.finishRenameNow(view, name: "") }
             }
             Divider()
-            Button("Move Left") { panes.nudgeTab(view.id, by: -1) }.disabled(!panes.canNudge(view.id, by: -1))
-            Button("Move Right") { panes.nudgeTab(view.id, by: 1) }.disabled(!panes.canNudge(view.id, by: 1))
+            Button(vertical ? "Move Up" : "Move Left") { panes.nudgeTab(view.id, by: -1) }
+                .disabled(!panes.canNudge(view.id, by: -1))
+            Button(vertical ? "Move Down" : "Move Right") { panes.nudgeTab(view.id, by: 1) }
+                .disabled(!panes.canNudge(view.id, by: 1))
+            Button(tabsOnRight ? "Show Tabs on Top" : "Show Tabs on Right") {
+                withAnimation(PaneLayoutModel.animation) { tabsOnRight.toggle() }
+            }
             Divider()
             Button("Close Pane", role: .destructive, action: close)
         }

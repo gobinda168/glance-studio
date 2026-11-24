@@ -158,7 +158,7 @@ private struct StoppedView: View {
 }
 
 /// A download's failure along the bottom, gone after 6 s.
-private struct DownloadErrorLine: View {
+struct DownloadErrorLine: View {
     @Binding var message: String?
 
     var body: some View {
@@ -174,7 +174,7 @@ private struct DownloadErrorLine: View {
 }
 
 /// A load that failed, in Studio's words instead of WebKit's blank page.
-private struct LoadErrorView: View {
+struct LoadErrorView: View {
     let error: WebPage.LoadError
     let retry: () -> Void
     let back: (() -> Void)?

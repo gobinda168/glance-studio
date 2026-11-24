@@ -89,7 +89,7 @@ public final class OrbChannelHub: ObservableObject {
     do {
       try server.start(path: ChannelPaths.socket())
     } catch {
-      failure = "\(error)"
+      failure = "The orb channel: \(error)"
       return
     }
     running = true
@@ -105,6 +105,8 @@ public final class OrbChannelHub: ObservableObject {
 
   /// Studio: whether Glance's panel (or the overlay's) is reading a reply; sessions' speech waits for it.
   public static func setOtherSpeech(_ check: @escaping () -> Bool) { SpeechQueue.shared.otherSpeech = check }
+  /// Stops what the orb is saying, without closing anything: another voice is starting.
+  public static func stopSpeech() { SpeechQueue.shared.stopAll() }
 
   public func stop() {
     guard running else { return }
@@ -203,6 +205,9 @@ public final class OrbChannelHub: ObservableObject {
       perform(book.status(session: id, callID: callID, state: state, caption: text, now: now))
     case .dismiss(let cardID):
       perform(book.dismiss(session: id, callID: callID, id: cardID))
+    case .todos, .addTodo, .completeTodo, .notes, .addNote, .appendToNote:
+      let (value, isError) = CaptureToolRunner.run(call, source: book.sessions[id]?.label ?? "Claude")
+      reply(id, callID, value, isError: isError)
     case .secretsList, .httpRequest:
       // Sessions only: the parser already refuses these to the orb assistant; refuse here too, the same way.
       guard book.sessions[id]?.assistant == false else {
